@@ -11,7 +11,7 @@
   </a>
 </p>
 
-[中文](README_CN.md) | [English]
+[中文] | [English](README_EN.md)
 
 ![screenshots](https://raw.githubusercontent.com/sirpdboy/openwrt/master/doc/说明1.jpg)
 
