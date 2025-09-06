@@ -50,11 +50,13 @@ rm -rf /tmp/kucat
 #############################
 # 5. 更新任务（可选）
 #############################
-if grep -qE 'kucat.*/www/luci-static/kucat.*git pull' /etc/crontabs/root; then
+CRON_MARK='# KuCat-auto-update'
+if grep -qF "$CRON_MARK" /etc/crontabs/root; then
     echo "---- 自动更新任务已存在，跳过 ----"
 else
     echo "---- 写入自动更新任务 ----"
     cat >> /etc/crontabs/root <<EOF
+$CRON_MARK
 30 4 * * * cd /www/luci-static/kucat && git pull --quiet >/dev/null 2>&1
 30 4 * * * cd /usr/lib/lua/luci/view/themes/kucat && git pull --quiet >/dev/null 2>&1
 EOF
