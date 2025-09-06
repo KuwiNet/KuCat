@@ -8,7 +8,7 @@ set -e
 # 0. 装依赖（git 已装可跳过）
 ##############################
 opkg update
-opkg install git-git-http git-nossl ca-bundle
+opkg install git-http ca-bundle
 
 ##############################
 # 1. 目录变量
