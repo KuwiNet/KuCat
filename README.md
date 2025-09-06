@@ -15,7 +15,8 @@
 ## 用法：
 先安装原版KuCat主题
 
-[http://zwrt/cgi-bin/luci/admin/services/ttyd/ttyd](http://zwrt/cgi-bin/luci/admin/services/ttyd/ttyd)
+[http://zwrt/cgi-bin/luci/admin/services/ttyd/ttyd](http://zwrt/cgi-bin/luci/admin/services/ttyd/ttyd)  
+或 http://你的路由器IP/cgi-bin/luci/admin/services/ttyd/ttyd
 
 然后终端运行
 ```
