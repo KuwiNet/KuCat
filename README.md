@@ -1,17 +1,10 @@
-<h1 align="center">
-  <br>luci-theme-kucat<br>
-</h1>
+# KuCat主题 （luci-theme-kucat）
 
   <p align="center">
 
-  <a target="_blank" href="https://github.com/sirpdboy/luci-theme-kucat/releases">
-    <img src="https://img.shields.io/github/release/sirpdboy/luci-theme-kucat.svg?style=flat-square&label=luci-theme-kucat&colorB=green">
-  </a>
-</p>
+## 原作者链接： https://github.com/sirpdboy/luci-theme-kucat  
 
-# 酷猫(KuCat)主题链接： https://github.com/sirpdboy/luci-theme-kucat  
-
-# 这里只是在原主题前端基础上做一点修改
+## 这里只是在原主题前端基础上做一点修改
 **仅修改图标和页脚。
 ## 用法：
 ### 一、直接安装
