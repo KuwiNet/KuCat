@@ -16,6 +16,9 @@
 用法：
 先安装原版KuCat主题
 然后再运行
-`
-sh https://github.com/KuwiNet/KuCat/edit/js/install-kucat.sh
-`
+```
+wget --no-check-certificate -O /tmp/install-kucat.sh \
+https://raw.githubusercontent.com/KuwiNet/KuCat/js/install-kucat.sh
+chmod +x /tmp/install-kucat.sh
+sh /tmp/install-kucat.sh
+```
