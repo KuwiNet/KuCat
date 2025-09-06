@@ -13,13 +13,13 @@
 
 # 这里只是在原主题前端基础上做一点修改
 ## 用法：
-先安装原版KuCat主题
-
-[http://zwrt/cgi-bin/luci/admin/services/ttyd/ttyd](http://zwrt/cgi-bin/luci/admin/services/ttyd/ttyd)  
-或 
-路由器IP/cgi-bin/luci/admin/services/ttyd/ttyd
-
-然后终端运行
+1、安装KuCat主题:
+```
+opkg update
+opkg install luci-theme-kucat
+opkg install luci-app-advancedplus
+```
+2、[终端](http://zwrt/cgi-bin/luci/admin/services/ttyd/ttyd)运行：
 ```
 wget --no-check-certificate -O /tmp/install-kucat.sh https://raw.githubusercontent.com/KuwiNet/KuCat/js/install-kucat.sh && chmod +x /tmp/install-kucat.sh && sh /tmp/install-kucat.sh
 ```
