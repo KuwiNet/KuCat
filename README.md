@@ -12,6 +12,7 @@
 # 酷猫(KuCat)主题链接： https://github.com/sirpdboy/luci-theme-kucat  
 
 # 这里只是在原主题前端基础上做一点修改
+**仅修改图标和页脚。
 ## 用法：
 1、安装KuCat主题:
 ```
