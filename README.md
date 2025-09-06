@@ -14,6 +14,11 @@
 # 这里只是在原主题前端基础上做一点修改
 **仅修改图标和页脚。
 ## 用法：
+### 一、直接安装
+```
+wget https://github.com/KuwiNet/KuCat/releases/download/v2.6.15/luci-theme-kucat_2.6.15-r20250822_all.ipk && opkg install luci-theme-kucat_2.6.15-r20250822_all.ipk
+```
+### 二、仅更新前端
 1、安装KuCat主题:
 ```
 opkg update
