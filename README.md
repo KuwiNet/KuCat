@@ -9,7 +9,7 @@
 ## 用法：
 ### 一、直接安装
 ```
-wget https://github.com/KuwiNet/KuCat/releases/download/v2.6.15/luci-theme-kucat_2.6.15-r20250822_all.ipk && opkg install luci-theme-kucat_2.6.15-r20250822_all.ipk
+wget -q --show-progress --no-check-certificate https://github.com/KuwiNet/KuCat/releases/download/v2.6.15/luci-theme-kucat_2.6.15-r20250822_all.ipk -O luci-theme-kucat.ipk && opkg --force-reinstall --force-overwrite install ./luci-theme-kucat.ipk && rm -f ./luci-theme-kucat.ipk
 ```
 ### 二、仅更新前端
 1、安装KuCat主题:
