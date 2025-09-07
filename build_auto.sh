@@ -4,7 +4,7 @@ set -e
 OPENWRT_BRANCH="24.10.2"          # 22.03 / 23.05 / 24.10 均可
 KuCat_Version="2.6.15"
 #=====================================
-ROOT="$HOME/kucat-4arch-${OPENWRT_BRANCH//./}"
+ROOT="$HOME/kucat-auto-${OPENWRT_BRANCH//./}"
 OUT="$ROOT/bin/all-archs"
 mkdir -p "$OUT"
 
