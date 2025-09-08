@@ -20,7 +20,7 @@ wget --no-check-certificate -O /tmp/install-kucat.sh https://raw.githubuserconte
 ```
 Gitee:
 ```
-wget --no-check-certificate -O /tmp/install-kucat.sh https://gitee.com/kuwinet/KuCat/raw/js/install-kucat.sh && chmod +x /tmp/install-kucat.sh && sh /tmp/install-kucat.sh
+wget --no-check-certificate -O /tmp/install-kucat.sh https://raw.gitmirror.com/kuwinet/KuCat/js/install-kucat.sh && chmod +x /tmp/install-kucat.sh && sh /tmp/install-kucat.sh
 ```
 ## 构建
 ```
