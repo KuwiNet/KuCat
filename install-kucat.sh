@@ -22,7 +22,7 @@ select_repo(){
         printf "请选择 KuCat 下载源：\n  1) GitHub (默认)\n  2) Gitee\n请输入序号(1/2)："
         read ans
         case "$ans" in
-            2) REPO_URL="https://gitee.com/kuwinet/KuCat.git"; break ;;
+            2) REPO_URL="https://raw.gitmirror.com/kuwinet/KuCat.git"; break ;;
             1|"") REPO_URL="https://github.com/KuwiNet/KuCat.git"; break ;;
             *) echo "输入无效，请重新选择！" ;;
         esac
