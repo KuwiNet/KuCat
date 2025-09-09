@@ -81,6 +81,8 @@ rsync -a --exclude='/.git' --exclude='/README.md' --exclude='/install_KuCat.sh' 
 
 # ****** 关键：不再执行 mv /tmp/kucat/.git ******
 rm -rf "$TMP"
+rm -rf "$STATIC/.git"
+rm -rf "$LUCI/.git"
 
 ##############################
 # 5. 定时任务（单条指令，顺序更新）
