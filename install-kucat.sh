@@ -34,6 +34,8 @@ if [ $NEED_PKG -eq 1 ]; then
     echo "---- 安装依赖 ----"
     opkg update
     opkg install git-http ca-bundle rsync
+    # 立即清除 opkg 临时缓存
+    rm -rf /tmp/opkg-*
 else
     echo "---- 依赖已满足，跳过安装 ----"
 fi
@@ -68,26 +70,26 @@ rsync -a --exclude-from="$EXCLUDE" "$TMP/luci-theme-kucat/luasrc/view/themes/kuc
 # 清理临时目录
 rm -rf "$TMP" "$EXCLUDE"
 
-# 5. 定时任务（同样排除 .git 等）
-CRON_MARK='# KuCat-auto-update'
+# 5. 定时任务：每天 03:40 完整运行本脚本（非交互，强制 Gitee）
+CRON_MARK='# KuCat-daily-install'
 if grep -qF "$CRON_MARK" /etc/crontabs/root; then
-    echo "---- 自动更新任务已存在，跳过 ----"
+    echo "---- 定时安装任务已存在，跳过 ----"
 else
-    echo "---- 写入自动更新任务 ----"
-    cat >> /etc/crontabs/root <<EOF
-$CRON_MARK
-30 4 * * * TMP=/tmp/kucat-\$\$; git clone --depth 1 $REPO_URL \$TMP >/dev/null 2>&1 && \\
-  rsync -a --exclude='/.git' --exclude='/README.md' --exclude='/install_KuCat.sh' \\
-        \$TMP/luci-theme-kucat/htdocs/luci-static/kucat/ $STATIC/ && \\
-  rsync -a --exclude='/.git' --exclude='/README.md' --exclude='/install_KuCat.sh' \\
-        \$TMP/luci-theme-kucat/luasrc/view/themes/kucat/ $LUCI/ && \\
-  rm -rf \$TMP
+    echo "---- 写入每天 03:40 定时安装任务 ----"
+    cat >> /etc/crontabs/root <<'EOF'
+40 3 * * * export REPO_URL=https://gitee.com/kuwinet/KuCat.git && /usr/bin/install_kucat.sh >/dev/null 2>&1
 EOF
     /etc/init.d/cron enable
     /etc/init.d/cron restart
 fi
 
-# 6. 立即生效
-/etc/init.d/uhttpd restart
+# 6. 立即生效（兼容 nginx/uhttpd）
+if [ -x /etc/init.d/uhttpd ]; then
+    /etc/init.d/uhttpd restart
+elif [ -x /etc/init.d/nginx ]; then
+    /etc/init.d/nginx restart
+else
+    killall -HUP uhttpd 2>/dev/null || killall -HUP nginx 2>/dev/null || true
+fi
 
-echo "KuCat 主题安装/更新完成！并设置每天 04:30 自动更新！"
+echo "KuCat 主题安装完成！已设置每天 03:40 自动更新！"
