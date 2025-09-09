@@ -16,11 +16,11 @@ opkg install luci-app-advancedplus
 ### 2.再在[终端](http://zwrt/cgi-bin/luci/admin/services/ttyd/ttyd)运行：
 Github:
 ```
-wget --no-check-certificate -O /tmp/install-kucat.sh https://raw.githubusercontent.com/KuwiNet/KuCat/js/install-kucat.sh && chmod +x /tmp/install-kucat.sh && sh /tmp/install-kucat.sh
+wget --no-check-certificate -O /usr/bin/install_kucat.sh https://raw.githubusercontent.com/KuwiNet/KuCat/js/install-kucat.sh && chmod +x /usr/bin/install_kucat.sh && sh /usr/bin/install_kucat.sh
 ```
 Gitee:
 ```
-wget --no-check-certificate -O /tmp/install-kucat.sh https://raw.gitmirror.com/kuwinet/KuCat/js/install-kucat.sh && chmod +x /tmp/install-kucat.sh && sh /tmp/install-kucat.sh
+wget --no-check-certificate -O /usr/bin/install_kucat.sh https://arelay.cn/raw.githubusercontent.com/KuwiNet/KuCat/js/install-kucat.sh && chmod +x /usr/bin/install_kucat.sh && sh /usr/bin/install_kucat.sh
 ```
 ## 构建
 ```
