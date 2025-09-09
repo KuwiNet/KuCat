@@ -62,7 +62,7 @@ cat > "$EXCLUDE" <<'EOF'
 EOF
 
 ##############################
-# 4. 克隆/更新：只拿有效文件
+# 4. 克隆/更新：只拿有效文件，不再拷贝 .git
 ##############################
 echo "---- 获取 KuCat 最新文件 ----"
 git clone --depth 1 "$REPO_URL" "$TMP"
@@ -70,16 +70,17 @@ git clone --depth 1 "$REPO_URL" "$TMP"
 # 静态资源
 [ -d "$STATIC" ] && rm -rf "$STATIC"
 mkdir -p "$STATIC"
-rsync -a --exclude-from="$EXCLUDE" "$TMP/luci-theme-kucat/htdocs/luci-static/kucat/" "$STATIC/"
+rsync -a --exclude='/.git' --exclude='/README.md' --exclude='/install_KuCat.sh' \
+  "$TMP/luci-theme-kucat/htdocs/luci-static/kucat/" "$STATIC/"
 
 # Lua 视图
 [ -d "$LUCI" ] && rm -rf "$LUCI"
 mkdir -p "$LUCI"
-rsync -a --exclude-from="$EXCLUDE" "$TMP/luci-theme-kucat/luasrc/view/themes/kucat/" "$LUCI/"
+rsync -a --exclude='/.git' --exclude='/README.md' --exclude='/install_KuCat.sh' \
+  "$TMP/luci-theme-kucat/luasrc/view/themes/kucat/" "$LUCI/"
 
-# 闪存紧张可删掉 .git 放弃自动更新
-# rm -rf "$TMP"
-rm -rf "$TMP" "$EXCLUDE"
+# ****** 关键：不再执行 mv /tmp/kucat/.git ******
+rm -rf "$TMP"
 
 ##############################
 # 5. 定时任务（单条指令，顺序更新）
