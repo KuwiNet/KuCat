@@ -77,6 +77,7 @@ if grep -qF "$CRON_MARK" /etc/crontabs/root; then
 else
     echo "---- 写入每天 03:40 定时安装任务 ----"
     cat >> /etc/crontabs/root <<'EOF'
+$CRON_MARK
 40 3 * * * export REPO_URL=https://gitee.com/kuwinet/KuCat.git && /usr/bin/install_kucat.sh >/dev/null 2>&1
 EOF
     /etc/init.d/cron enable
