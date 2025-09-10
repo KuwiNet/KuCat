@@ -9,8 +9,21 @@ ROOT="$HOME/kucat-auto-${OPENWRT_BRANCH//./}"
 OUT="$ROOT/bin/all-archs"
 mkdir -p "$OUT"
 
-command -v curl &>/dev/null || { echo "❌ 请先安装 curl"; exit 1; }
-command -v zstd &>/dev/null || sudo apt-get install -y zstd
+# 安装依赖（如果已经安装就跳过）
+echo "========== 检查依赖 =========="
+if ! command -v curl &>/dev/null; then
+    echo "❌ 请先安装 curl"
+    exit 1
+else
+    echo "✅ curl 已安装"
+fi
+
+if ! command -v zstd &>/dev/null; then
+    echo ">>> 安装 zstd..."
+    sudo apt-get install -y zstd
+else
+    echo "✅ zstd 已安装"
+fi
 
 # n 个靶机
 declare -A TARGET_MAP=(
@@ -58,53 +71,114 @@ download_sdk() {
   echo "$url$sdk_file"
 }
 
+# 预先下载所有需要的SDK
+declare -A SDK_URLS
 for arch in "${!TARGET_MAP[@]}"; do
-  echo "==========  $arch (branch ${OPENWRT_BRANCH})  =========="
-  cd "$ROOT"
+  echo "========== 处理 $arch SDK =========="
   SDK_URL=$(download_sdk "$arch" ${TARGET_MAP[$arch]})
+  SDK_URLS["$arch"]="$SDK_URL"
   tarfile=$(basename "$SDK_URL")
 
-  [[ -f $tarfile ]] || curl -L -C - -o "$tarfile" "$SDK_URL"
-
-  if [[ $(stat -c%s "$tarfile") -lt 1048576 ]]; then
-    echo "❌ $tarfile 过小，可能 404"; exit 1; fi
-
-  dir="sdk-$arch"
-  mkdir -p "$dir"
-  case "$tarfile" in
-    *.tar.xz)  tar -xf "$tarfile" --strip=1 -C "$dir" ;;
-    *.tar.zst) tar --use-compress-program=unzstd -xf "$tarfile" --strip=1 -C "$dir" ;;
-    *) echo "未知压缩格式"; exit 1 ;;
-  esac
-  cd "$dir"
-
-  ./scripts/feeds update -a
-  ./scripts/feeds install -a
-  
-  # 删除旧的主题包目录（如果存在）
-  rm -rf package/luci-theme-kucat
-  
-  # 克隆主题包（使用js分支）
-  git clone --depth 1 -b js https://github.com/KuwiNet/KuCat.git package/luci-theme-kucat
-
-  # 检查字体文件是否存在
-  echo "检查字体文件..."
-  if [[ -f package/luci-theme-kucat/htdocs/luci-static/kucat/fonts/AlimamaFangYuanTiVF-Thin.ttf ]]; then
-    echo "✅ 字体文件存在"
-    ls -la package/luci-theme-kucat/htdocs/luci-static/kucat/fonts/
-  else
-    echo "❌ 字体文件不存在，检查目录结构:"
-    find package/luci-theme-kucat -name "*.ttf" -o -name "*.woff" -o -name "*.woff2" | head -10
-    exit 1
+  # 检查SDK文件是否已经存在且大小正常
+  if [[ -f "$tarfile" ]]; then
+    local file_size=$(stat -c%s "$tarfile")
+    if [[ $file_size -gt 1048576 ]]; then
+      echo "✅ $arch SDK 已存在且大小正常 ($((file_size/1024/1024))MB)，跳过下载"
+      continue
+    else
+      echo "⚠️  $arch SDK 文件过小 ($((file_size/1024))KB)，重新下载..."
+      rm -f "$tarfile"
+    fi
   fi
 
-  make defconfig
-  sed -i 's/# CONFIG_PACKAGE_luci-theme-kucat is not set/CONFIG_PACKAGE_luci-theme-kucat=m/' .config
-  make defconfig
+  echo ">>> 下载 $arch SDK..."
+  curl -L -C - -o "$tarfile" "$SDK_URL"
 
-  make package/luci-theme-kucat/compile V=s -j$(nproc)
-  cp bin/packages/*/base/luci-theme-kucat_*.ipk "$OUT/luci-theme-kucat-${KuCat_Version}-$arch.ipk"
+  # 再次检查文件大小
+  if [[ $(stat -c%s "$tarfile") -lt 1048576 ]]; then
+    echo "❌ $tarfile 过小，可能 404"; exit 1
+  fi
 done
 
-echo "====== 架构完成 ======"
+# 处理主题包（每次都更新）
+echo "========== 处理主题包 =========="
+if [[ -d "$ROOT/kucat-theme" ]]; then
+  echo ">>> 更新主题包..."
+  cd "$ROOT/kucat-theme"
+  git pull origin js
+  cd "$ROOT"
+else
+  echo ">>> 克隆主题包..."
+  git clone --depth 1 -b js https://github.com/KuwiNet/KuCat.git "$ROOT/kucat-theme"
+fi
+
+echo "✅ 主题包已更新到最新版本"
+
+# 开始编译每个架构
+for arch in "${!TARGET_MAP[@]}"; do
+  echo "========== 编译 $arch (branch ${OPENWRT_BRANCH}) =========="
+  cd "$ROOT"
+  
+  tarfile=$(basename "${SDK_URLS[$arch]}")
+  dir="sdk-$arch"
+  
+  # 解压SDK（如果目录不存在）
+  if [[ ! -d "$dir" ]]; then
+    echo ">>> 解压 $arch SDK..."
+    mkdir -p "$dir"
+    case "$tarfile" in
+      *.tar.xz)  tar -xf "$tarfile" --strip=1 -C "$dir" ;;
+      *.tar.zst) tar --use-compress-program=unzstd -xf "$tarfile" --strip=1 -C "$dir" ;;
+      *) echo "未知压缩格式"; exit 1 ;;
+    esac
+    echo "✅ $arch SDK 解压完成"
+  else
+    echo "✅ $arch SDK 已解压，跳过"
+  fi
+  
+  cd "$dir"
+
+  # 更新feeds（只运行一次）
+  if [[ ! -f .feeds_updated ]]; then
+    echo ">>> 更新feeds..."
+    ./scripts/feeds update -a
+    ./scripts/feeds install -a
+    touch .feeds_updated
+    echo "✅ feeds 更新完成"
+  else
+    echo "✅ feeds 已更新，跳过"
+  fi
+  
+  # 复制主题包（每次都使用最新的）
+  echo ">>> 复制最新主题包..."
+  rm -rf package/luci-theme-kucat
+  cp -r "$ROOT/kucat-theme/luci-theme-kucat" package/
+
+  # 配置和编译
+  if [[ ! -f .config ]]; then
+    echo ">>> 生成配置..."
+    make defconfig
+    sed -i 's/# CONFIG_PACKAGE_luci-theme-kucat is not set/CONFIG_PACKAGE_luci-theme-kucat=m/' .config
+    make defconfig
+    echo "✅ 配置完成"
+  else
+    echo "✅ 配置已存在，跳过"
+  fi
+
+  echo ">>> 开始编译..."
+  make package/luci-theme-kucat/compile V=s -j$(nproc)
+  cp bin/packages/*/base/luci-theme-kucat_*.ipk "$OUT/luci-theme-kucat-${KuCat_Version}-$arch.ipk"
+  
+  echo "✅ $arch 编译完成"
+done
+
+# 编译完成后删除主题包
+echo "========== 清理工作 =========="
+if [[ -d "$ROOT/kucat-theme" ]]; then
+  echo ">>> 删除主题包目录..."
+  rm -rf "$ROOT/kucat-theme"
+  echo "✅ 主题包已删除"
+fi
+
+echo "====== 所有架构编译完成 ======"
 ls -lh "$OUT"/*.ipk
