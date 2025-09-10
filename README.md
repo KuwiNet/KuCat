@@ -24,5 +24,5 @@ wget --no-check-certificate -O /usr/bin/install_kucat.sh https://arelay.cn/raw.g
 ```
 ## 构建
 ```
-curl -LO https://raw.githubusercontent.com/KuwiNet/KuCat/js/build.sh && chmod +x build.sh && ./build.sh
+curl -LO https://raw.githubusercontent.com/KuwiNet/KuCat/js/build_auto.sh && chmod +x build_auto.sh && ./build_auto.sh
 ```
