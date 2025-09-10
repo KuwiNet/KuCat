@@ -1,0 +1,42 @@
+name: 编译 OpenWrt KuCat 主题
+
+on:
+  push:
+    branches: [ main, master ]   # 任何推送都触发
+  workflow_dispatch:             # 手动按钮也允许
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [x86_64, mediatek, rockchip]   # 你想编几个架构就写几个
+    steps:
+      # 1. 拉代码
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      # 2. 装系统依赖（只装一次）
+      - name: 安装依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential ccache ecj fastjar file g++ gawk \
+            gettext git java-propose-classpath libelf-dev libncurses5-dev \
+            libncursesw5-dev libssl-dev python3 unzip wget python3-distutils \
+            python3-setuptools python3-dev rsync subversion swig time xsltproc \
+            zlib1g-dev zstd curl
+
+      # 3. 跑脚本（矩阵并行，每个架构一个 Job）
+      - name: 编译 ${{ matrix.arch }}
+        run: |
+          chmod +x $GITHUB_WORKSPACE/build.sh
+          # 把架构变量传进去，脚本里用 TARGET_MAP 自动匹配
+          ARCH=${{ matrix.arch }} $GITHUB_WORKSPACE/build.sh
+
+      # 4. 上传产物（直接单文件 ipk）
+      - name: 上传 ipk
+        uses: actions/upload-artifact@v4
+        with:
+          name: kucat-${{ matrix.arch }}.ipk   # 下载时文件名就是 xxx.ipk
+          path: ~/kucat-auto-*/bin/all-archs/luci-theme-kucat-*.ipk
+          retention-days: 90
