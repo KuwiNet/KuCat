@@ -28,6 +28,11 @@ else
     echo "✅ zstd 已安装"
 fi
 
+# 安装编译所需的Python依赖
+echo ">>> 安装Python依赖..."
+sudo apt-get update
+sudo apt-get install -y python3-pyelftools python3-dev python3-setuptools swig rsync
+
 # n 个靶机
 declare -A TARGET_MAP=(
   [x86_64]="x86/64"
@@ -57,7 +62,7 @@ download_sdk() {
   local arch=$1 tgt=$2 sub=$3
   local urls=(
     "https://downloads.openwrt.org/releases/${OPENWRT_BRANCH}/targets/${tgt}/${sub}/"
-    "https://mirror-03.infra.openwrt.org/releases/${OPENWRT_BRANCH}/targets/${tgt}/${sub}/"
+    "https://mirror-03.infra.openwrt.org/releases/${OPENWRT_BRANCH}/targets/${tgt/${sub}/"
   )
   local html="" url=""
   for u in "${urls[@]}"; do
@@ -105,14 +110,14 @@ done
 
 # 处理主题包（每次都更新）
 echo "========== 处理主题包 =========="
-if [[ -d "kucat-theme" ]]; then
+if [[ -d "$ROOT/kucat-theme" ]]; then
   echo ">>> 更新主题包..."
-  cd "kucat-theme"
+  cd "$ROOT/kucat-theme"
   git pull origin js
   cd "$ROOT"
 else
   echo ">>> 克隆主题包..."
-  git clone --depth 1 -b js https://github.com/KuwiNet/KuCat.git "kucat-theme"
+  git clone --depth 1 -b js https://github.com/KuwiNet/KuCat.git "$ROOT/kucat-theme"
 fi
 
 echo "✅ 主题包已更新到最新版本"
@@ -170,20 +175,18 @@ for arch in "${!TARGET_MAP[@]}"; do
     echo "✅ 配置已存在，跳过"
   fi
 
+  # 删除旧的IPK文件
+  echo ">>> 删除旧的IPK文件..."
+  rm -f "$OUT/luci-theme-kucat-${KuCat_Version}-$arch.ipk" 2>/dev/null || true
+
   echo ">>> 开始编译..."
-  make package/luci-theme-kucat/compile V=s -j$(nproc)
+  # 只编译主题包，跳过其他包的依赖检查
+  make package/luci-theme-kucat/compile V=s -j$(nproc) IGNORE_ERRORS=m
+  
   cp bin/packages/*/base/luci-theme-kucat_*.ipk "$OUT/luci-theme-kucat-${KuCat_Version}-$arch.ipk"
   
   echo "✅ $arch 编译完成"
 done
-
-# 编译完成后删除主题包
-echo "========== 清理工作 =========="
-if [[ -d "$ROOT/kucat-theme" ]]; then
-  echo ">>> 删除主题包目录..."
-  rm -rf "$ROOT/kucat-theme"
-  echo "✅ 主题包已删除"
-fi
 
 echo "====== 所有架构编译完成 ======"
 ls -lh "$OUT"/*.ipk
