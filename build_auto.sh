@@ -1,5 +1,9 @@
 #!/bin/bash
-set -e
+set -ex
+# 如果环境变量 ARCH 存在，就用它；否则按原来的 for 循环
+if [[ -n "$ARCH" ]]; then
+    TARGET_MAP=([$ARCH]="${TARGET_MAP[$ARCH]}")
+fi
 #========== 唯一需要改的地方 ==========
 OPENWRT_BRANCH="24.10.2"          # 22.03 / 23.05 / 24.10 均可
 KuCat_Version="2.6.15"
@@ -33,10 +37,11 @@ download_sdk() {
   echo "$url$sdk_file"                 # ← 仅标准输出返回纯 URL
 }
 
-# 4 个靶机
+# n 个靶机
 declare -A TARGET_MAP=(
   [x86_64]="x86/64"
   [mediatek]="mediatek/filogic"
+  [rockchip]="rockchip/armv8"
 )
 
 for arch in "${!TARGET_MAP[@]}"; do
@@ -67,6 +72,18 @@ esac
   make defconfig
   sed -i 's/# CONFIG_PACKAGE_luci-theme-kucat is not set/CONFIG_PACKAGE_luci-theme-kucat=m/' .config
   make defconfig
+  
+  cat >>package/luci-theme-kucat/htdocs/css/style.css <<'EOF'
+@font-face {
+  font-family: "AlimamaFangYuanTi";
+  src: url('../fonts/AlimamaFangYuanTiVF-Thin.woff2') format('woff2'),
+       url('../fonts/AlimamaFangYuanTiVF-Thin.woff') format('woff'),
+       url('../fonts/AlimamaFangYuanTiVF-Thin.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+EOF
 
   make package/luci-theme-kucat/compile V=s -j$(nproc)
   cp bin/packages/*/base/luci-theme-kucat_*.ipk "$OUT/luci-theme-kucat-${KuCat_Version}-$arch.ipk"
