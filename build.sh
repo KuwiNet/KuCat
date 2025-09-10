@@ -62,7 +62,7 @@ download_sdk() {
   local arch=$1 tgt=$2 sub=$3
   local urls=(
     "https://downloads.openwrt.org/releases/${OPENWRT_BRANCH}/targets/${tgt}/${sub}/"
-    "https://mirror-03.infra.openwrt.org/releases/${OPENWRT_BRANCH}/targets/${tgt/${sub}/"
+    "https://mirror-03.infra.openwrt.org/releases/${OPENWRT_BRANCH}/targets/${tgt}/${sub}/"
   )
   local html="" url=""
   for u in "${urls[@]}"; do
