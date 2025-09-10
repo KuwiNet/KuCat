@@ -9,6 +9,9 @@ ROOT="$HOME/kucat-auto-${OPENWRT_BRANCH//./}"
 OUT="$ROOT/bin/all-archs"
 mkdir -p "$OUT"
 
+# 切换到工作目录
+cd "$ROOT"
+
 # 安装依赖（如果已经安装就跳过）
 echo "========== 检查依赖 =========="
 if ! command -v curl &>/dev/null; then
@@ -102,14 +105,14 @@ done
 
 # 处理主题包（每次都更新）
 echo "========== 处理主题包 =========="
-if [[ -d "$ROOT/kucat-theme" ]]; then
+if [[ -d "kucat-theme" ]]; then
   echo ">>> 更新主题包..."
-  cd "$ROOT/kucat-theme"
+  cd "kucat-theme"
   git pull origin js
   cd "$ROOT"
 else
   echo ">>> 克隆主题包..."
-  git clone --depth 1 -b js https://github.com/KuwiNet/KuCat.git "$ROOT/kucat-theme"
+  git clone --depth 1 -b js https://github.com/KuwiNet/KuCat.git "kucat-theme"
 fi
 
 echo "✅ 主题包已更新到最新版本"
@@ -117,10 +120,12 @@ echo "✅ 主题包已更新到最新版本"
 # 开始编译每个架构
 for arch in "${!TARGET_MAP[@]}"; do
   echo "========== 编译 $arch (branch ${OPENWRT_BRANCH}) =========="
-  cd "$ROOT"
   
   tarfile=$(basename "${SDK_URLS[$arch]}")
   dir="sdk-$arch"
+  
+  # 确保我们在正确的目录
+  cd "$ROOT"
   
   # 解压SDK（如果目录不存在）
   if [[ ! -d "$dir" ]]; then
