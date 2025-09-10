@@ -25,7 +25,7 @@
   src: url('../fonts/AlimamaFangYuanTiVF-Thin.ttf') format('truetype'),
     url('../fonts/AlimamaFangYuanTiVF-Thin.woff') format('woff'),
     url('../fonts/AlimamaFangYuanTiVF-Thin.woff2') format('woff2');
-  font-weight: 700;
+  font-weight: 100 900;
   font-style: normal;
 }
 
@@ -378,7 +378,7 @@
 
 .center {
   width: 100%;
-  transform: translate(-50,-50%);
+  transform: translate(-50%,-50%);
   text-align: center
 }
 
@@ -2981,7 +2981,7 @@ td>.ifacebadge,.td>.ifacebadge {
   padding: 1rem;
   min-width: 7rem;
   background-color: rgba(var(--primary-rgbm),0.3);
-  transform: translate(-50,-50%);
+  transform: translate(-50%,-50%);
   color: var(--menu-fontcolor);
   text-align: center !important
 }
@@ -4499,7 +4499,7 @@ div#file-manager-container #status-bar #status-info {
 
 .Dashboard .dashboard-bg {
   background-color: rgba(var(--primary-rgbm),var(--primary-rgbs-ts));
-  background-color: rgba(var(--primary-rgbbody),1)important
+  background-color: rgba(var(--primary-rgbbody),1) !important
 }
 
 .Dashboard h3 {
