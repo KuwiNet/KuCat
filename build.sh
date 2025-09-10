@@ -45,7 +45,7 @@ download_sdk() {
   )
   local html="" url=""
   for u in "${urls[@]}"; do
-    echo ">>> 尝试抓取 $u" >&2          # ← 改到标准错误
+    echo ">>> 尝试抓取 $u" >&2
     html=$(curl -sL -f "$u" 2>&1) && { url="$u"; break; } || continue
   done
   [[ -n $html ]] || { echo "❌ 所有 mirror 均无法访问" >&2; exit 1; }
@@ -54,8 +54,8 @@ download_sdk() {
   grep -oE 'href="(openwrt-sdk-[^"]+Linux-x86_64\.tar\.(xz|zst))"' | \
   head -1 | sed 's/href="//;s/"//' | xargs)
   [[ -n $sdk_file ]] || { echo "❌ 未解析到 SDK 文件名" >&2; exit 1; }
-  echo ">>> 解析到：$sdk_file" >&2      # ← 改到标准错误
-  echo "$url$sdk_file"                 # ← 仅标准输出返回纯 URL
+  echo ">>> 解析到：$sdk_file" >&2
+  echo "$url$sdk_file"
 }
 
 for arch in "${!TARGET_MAP[@]}"; do
@@ -71,33 +71,36 @@ for arch in "${!TARGET_MAP[@]}"; do
 
   dir="sdk-$arch"
   mkdir -p "$dir"
-case "$tarfile" in
-  *.tar.xz)  tar -xf "$tarfile" --strip=1 -C "$dir" ;;
-  *.tar.zst) tar --use-compress-program=unzstd -xf "$tarfile" --strip=1 -C "$dir" ;;
-  *) echo "未知压缩格式"; exit 1 ;;
-esac
+  case "$tarfile" in
+    *.tar.xz)  tar -xf "$tarfile" --strip=1 -C "$dir" ;;
+    *.tar.zst) tar --use-compress-program=unzstd -xf "$tarfile" --strip=1 -C "$dir" ;;
+    *) echo "未知压缩格式"; exit 1 ;;
+  esac
   cd "$dir"
 
   ./scripts/feeds update -a
   ./scripts/feeds install -a
-  [[ -d package/luci-theme-kucat ]] || \
-    git clone --depth 1 https://github.com/KuwiNet/KuCat.git package/luci-theme-kucat
+  
+  # 删除旧的主题包目录（如果存在）
+  rm -rf package/luci-theme-kucat
+  
+  # 克隆主题包（使用js分支）
+  git clone --depth 1 -b js https://github.com/KuwiNet/KuCat.git package/luci-theme-kucat
+
+  # 检查字体文件是否存在
+  echo "检查字体文件..."
+  if [[ -f package/luci-theme-kucat/htdocs/luci-static/kucat/fonts/AlimamaFangYuanTiVF-Thin.ttf ]]; then
+    echo "✅ 字体文件存在"
+    ls -la package/luci-theme-kucat/htdocs/luci-static/kucat/fonts/
+  else
+    echo "❌ 字体文件不存在，检查目录结构:"
+    find package/luci-theme-kucat -name "*.ttf" -o -name "*.woff" -o -name "*.woff2" | head -10
+    exit 1
+  fi
 
   make defconfig
   sed -i 's/# CONFIG_PACKAGE_luci-theme-kucat is not set/CONFIG_PACKAGE_luci-theme-kucat=m/' .config
   make defconfig
-  
-  cat >>package/luci-theme-kucat/htdocs/css/style.css <<'EOF'
-@font-face {
-  font-family: "AlimamaFangYuanTi";
-  src: url('../fonts/AlimamaFangYuanTiVF-Thin.woff2') format('woff2'),
-       url('../fonts/AlimamaFangYuanTiVF-Thin.woff') format('woff'),
-       url('../fonts/AlimamaFangYuanTiVF-Thin.ttf') format('truetype');
-  font-weight: 100 900;
-  font-style: normal;
-  font-display: swap;
-}
-EOF
 
   make package/luci-theme-kucat/compile V=s -j$(nproc)
   cp bin/packages/*/base/luci-theme-kucat_*.ipk "$OUT/luci-theme-kucat-${KuCat_Version}-$arch.ipk"
