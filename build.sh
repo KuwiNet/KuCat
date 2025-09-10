@@ -28,10 +28,9 @@ download_sdk() {
   done
   [[ -n $html ]] || { echo "❌ 所有 mirror 均无法访问" >&2; exit 1; }
 
-  local sdk_file
-  sdk_file=$(echo "$html" | \
-    grep -oE 'href="(openwrt-sdk-[^"]+\.Linux-x86_64\.tar\.(xz|zst))"' | \
-    head -1 | sed 's/href="//;s/"//' | xargs)
+  local sdk_file=$(echo "$html" | \
+  grep -oE 'href="(openwrt-sdk-[^"]+Linux-x86_64\.tar\.(xz|zst))"' | \
+  head -1 | sed 's/href="//;s/"//' | xargs)
   [[ -n $sdk_file ]] || { echo "❌ 未解析到 SDK 文件名" >&2; exit 1; }
   echo ">>> 解析到：$sdk_file" >&2      # ← 改到标准错误
   echo "$url$sdk_file"                 # ← 仅标准输出返回纯 URL
