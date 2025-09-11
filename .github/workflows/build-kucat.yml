@@ -28,7 +28,7 @@ jobs:
       # 3. 跑脚本（矩阵并行，每个架构一个 Job）
       - name: 编译 ${{ matrix.arch }}
         run: |
-          chmod +x $GITHUB_WORKSPACE/build.sh
+          chmod +x $GITHUB_WORKSPACE/build_auto.sh
           # 把架构变量传进去，脚本里用 TARGET_MAP 自动匹配
           ARCH=${{ matrix.arch }} $GITHUB_WORKSPACE/build_auto.sh
 
