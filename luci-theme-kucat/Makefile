@@ -9,7 +9,7 @@ LUCI_PKGARCH:=all  # 主题与架构无关，固定为 all（适配所有设备�
 
 # 包基本信息（符合 OpenWrt 包规范）
 PKG_NAME:=luci-theme-kucat  # 包名（必须与目录名一致）
-PKG_VERSION:=2.6.8  # 版本号（可按需升级）
+PKG_VERSION:=2.6.7  # 版本号（可按需升级）
 PKG_RELEASE:=1  # 发布版本（每次修改可+1）
 PKG_LICENSE:=Apache-2.0  # 许可证（与主题头部注释一致）
 PKG_MAINTAINER:=KuwiNet Team <dev@kuwinet.com>  # 维护者信息（可替换为实际信息）
