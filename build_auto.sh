@@ -49,8 +49,9 @@ echo "✅ Simulated build completed (replace with real SDK build)"
 # -------------------------------
 echo "🎨 Downloading unminified CSS files..."
 mkdir -p temp_css
-curl -fsSL https://raw.githubusercontent.com/KuwiNet/KuCat/js/luci-theme-kucat/htdocs/luci-static/kucat/css/cascade.css -o temp_css/cascade.css
-curl -fsSL https://raw.githubusercontent.com/KuwiNet/KuCat/js/luci-theme-kucat/htdocs/luci-static/kucat/css/style.css -o temp_css/style.css
+REPO_BASE="https://raw.githubusercontent.com/KuwiNet/KuCat/js/luci-theme-kucat/htdocs/luci-static/kucat/css"
+curl -fsSL "$REPO_BASE/theme.css" -o temp_css/theme.css
+curl -fsSL "$REPO_BASE/style.css" -o temp_css/style.css
 
 # -------------------------------
 # Step 4: 替换 .ipk 中的 CSS 文件（解包 → 替换 → 重新打包）
