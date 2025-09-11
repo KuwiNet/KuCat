@@ -34,39 +34,45 @@ if [ ! -d "$SDK_DIR" ]; then
 fi
 
 # -------------------------------
-# Step 4: 复制主题并编译
+# Step 4: 复制主题并编译（不 cd，用 make -C）
 # -------------------------------
 echo "📁 复制主题到 SDK..."
+rm -rf "$SDK_DIR/package/luci-theme-kucat" 2>/dev/null || true
 cp -r luci-theme-kucat "$SDK_DIR/package/"
 
-cd "$SDK_DIR"
-
 echo "🔄 更新 feeds..."
-./scripts/feeds update -a
-./scripts/feeds install -a
-
-echo "⚙️ 编译中..."
-make defconfig
-make package/luci-theme-kucat/compile V=s
+make -C "$SDK_DIR" defconfig
+make -C "$SDK_DIR" package/luci-theme-kucat/compile V=s
 
 # -------------------------------
-# Step 5: 查找生成的 .ipk
+# Step 5: 查找 .ipk 文件（使用绝对路径）
 # -------------------------------
-IPK_ABS_SRC="$SDK_DIR/bin/packages/x86_64/base/luci-theme-kucat_${PKG_VERSION}_all.ipk"
+IPK_GLOB="$SDK_DIR/bin/packages/x86_64/base/luci-theme-kucat_${PKG_VERSION}_*.ipk"
+IPK_ABS_SRC=$(ls $IPK_GLOB | head -n1)
 
 if [ ! -f "$IPK_ABS_SRC" ]; then
-  echo "❌ 文件不存在: $IPK_ABS_SRC"
-  find "$SDK_DIR/bin/packages" -name "*.ipk"  # 调试：列出所有包
+  echo "❌ 错误：未找到 .ipk 文件！期望路径：" >&2
+  echo "    $IPK_GLOB" >&2
+  echo "🔍 实际存在的文件：" >&2
+  find "$SDK_DIR/bin/packages" -type f -name "*.ipk" | xargs ls -lh 2>/dev/null || echo "无"
   exit 1
 fi
+
+echo "✅ 找到 IPK (绝对路径): $IPK_ABS_SRC"
 
 # -------------------------------
 # Step 6: 下载未压缩 CSS
 # -------------------------------
 echo "🎨 下载未压缩 CSS..."
 REPO_BASE="https://raw.githubusercontent.com/KuwiNet/KuCat/js/luci-theme-kucat/htdocs/luci-static/kucat/css"
-curl -fsSL "$REPO_BASE/theme.css" -o "../$CSS_DIR/theme.css"
-curl -fsSL "$REPO_BASE/style.css" -o "../$CSS_DIR/style.css"
+
+curl -fsSL "$REPO_BASE/theme.css" -o "$CSS_DIR/theme.css" && echo "   ✔ theme.css"
+curl -fsSL "$REPO_BASE/style.css" -o "$CSS_DIR/style.css" && echo "   ✔ style.css"
+
+if [ ! -f "$CSS_DIR/theme.css" ] || [ ! -f "$CSS_DIR/style.css" ]; then
+  echo "❌ CSS 下载失败！" >&2
+  exit 1
+fi
 
 # -------------------------------
 # Step 7: 重打包为 all 架构
@@ -74,16 +80,18 @@ curl -fsSL "$REPO_BASE/style.css" -o "../$CSS_DIR/style.css"
 repack_all_ipk() {
   local src_ipk="$1"
   local dst_ipk="$2"
-  local tmpdir=$(mktemp -d)
+  local tmpdir=$(mktemp -d --tmpdir="$TEMP_DIR" 2>/dev/null || mktemp -d)
 
+  echo "🔧 解包: $src_ipk"
   cd "$tmpdir"
-  ar x "$src_ipk"
-  tar -xzf data.tar.gz
-  tar -xzf control.tar.gz
+  ar x "$src_ipk" || { echo "❌ ar x 失败"; exit 1; }
+  tar -xzf data.tar.gz || { echo "❌ 解包 data.tar.gz 失败"; exit 1; }
+  tar -xzf control.tar.gz || { echo "❌ 解包 control.tar.gz 失败"; exit 1; }
 
   # 替换 CSS
   mkdir -p htdocs/luci-static/kucat/css
-  cp "../$CSS_DIR"/*.css htdocs/luci-static/kucat/css/
+  cp "$CSS_DIR"/*.css htdocs/luci-static/kucat/css/
+  echo "✅ 已替换 CSS 文件"
 
   # 重新打包
   tar -czf data.tar.gz htdocs --owner=0 --group=0
@@ -91,16 +99,11 @@ repack_all_ipk() {
 
   cd - > /dev/null
   rm -rf "$tmpdir"
-  echo "✅ 已生成: $dst_ipk"
+  echo "✅ 重新打包完成: $dst_ipk"
 }
 
+# -------------------------------
+# Step 8: 执行重打包
+# -------------------------------
 FINAL_IPK="$OUTPUT_DIR/luci-theme-kucat_${FULL_VERSION}_all.ipk"
-repack_all_ipk "$IPK_SRC" "$FINAL_IPK"
-
-# -------------------------------
-# Step 8: 完成
-# -------------------------------
-echo "🎉 构建完成！输出文件："
-ls -lh "$OUTPUT_DIR/"
-
-echo "💡 此 all 版本适用于所有 OpenWrt 设备。"
+repack_all_ipk "$IPK_ABS_SRC" "$FINAL_IPK"
