@@ -1,13 +1,20 @@
 #!/bin/sh
+
+# 仅在首次安装时执行（升级时不覆盖现有配置）
 if [ "$PKG_UPGRADE" != 1 ]; then
-	uci get luci.themes.KuCat >/dev/null 2>&1 || \
-uci batch <<-EOF
-	set luci.themes.KuCat=/luci-static/kucat
-	set luci.main.mediaurlbase=/luci-static/kucat
-	commit luci
+    # 1. 检查 KuCat 主题是否已注册到 LuCI，未注册则添加
+    uci get luci.themes.KuCat >/dev/null 2>&1 || \
+    uci batch <<-EOF
+        set luci.themes.KuCat=/luci-static/kucat  # 注册主题路径
+        set luci.main.mediaurlbase=/luci-static/kucat  # 设置默认主题资源路径
+        commit luci  # 提交配置
 EOF
 fi
-chmod +x /usr/libexec/kucat/kucat*
 
-rm -rf /tmp/luci-*
+# 2. 清理 LuCI 缓存（确保主题立即生效，避免旧缓存干扰）
+rm -rf /tmp/luci-indexcache
+rm -rf /tmp/luci-modulecache/*
+
+# 3. 移除无效的 chmod 命令（原路径不存在，无需保留）
+
 exit 0
