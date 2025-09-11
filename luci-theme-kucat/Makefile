@@ -9,8 +9,19 @@ THEME_NAME:=kucat
 THEME_TITLE:=Kucat Theme
 PKG_NAME:=luci-theme-$(THEME_NAME)
 LUCI_TITLE:=Kucat Theme by KuwiNet
-LUCI_DEPENDS:=
 PKG_VERSION:=2.6.18
+
+# 新增：排除 style.css 压缩
+define Build/Compile
+	# 调用默认编译规则
+	$(call Build/Compile/Default)
+	
+	# 还原被压缩的 style.css（如果存在）
+	if [ -f $(PKG_BUILD_DIR)/htdocs/luci-static/kucat/css/style.css ]; then \
+		cp $(PKG_BUILD_DIR)/htdocs/luci-static/kucat/css/style.css $(PKG_BUILD_DIR)/htdocs/luci-static/kucat/css/style.css.orig; \
+		mv $(PKG_BUILD_DIR)/htdocs/luci-static/kucat/css/style.css.orig $(PKG_BUILD_DIR)/htdocs/luci-static/kucat/css/style.css; \
+	fi
+endef
 
 define Package/luci-theme-$(THEME_NAME)/conffiles
 /www/luci-static/resources/background/
