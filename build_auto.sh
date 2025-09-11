@@ -1,139 +1,105 @@
 #!/bin/bash
 set -e
 
-echo "🚀 Starting LuCI Theme Kucat Build Process..."
+echo "🚀 构建 LuCI 主题 Kucat (all 架构专用版)"
 
 # -------------------------------
-# Step 1: 获取版本号
+# Step 1: 提取版本号
 # -------------------------------
-get_version() {
-  local makefile="luci-theme-kucat/Makefile"
-  if [ ! -f "$makefile" ]; then
-    echo "❌ Error: $makefile not found!" >&2
-    exit 1
-  fi
-  awk -F'[ =]+' '/^PKG_VERSION:/ {print $2; exit}' "$makefile" | xargs
-}
-
-PKG_VERSION=$(get_version)
+PKG_VERSION=$(awk -F'[ =]+' '/^PKG_VERSION:/ {print $2; exit}' luci-theme-kucat/Makefile | xargs)
 BUILD_DATE="r$(date +%Y%m%d)"
 FULL_VERSION="${PKG_VERSION}-${BUILD_DATE}"
-echo "📦 PKG_VERSION: $PKG_VERSION"
-echo "📅 Build Date:  $BUILD_DATE"
-echo "✅ Full Version: $FULL_VERSION"
+
+echo "📦 版本: $PKG_VERSION"
+echo "📅 构建日期: $BUILD_DATE"
+echo "✅ 完整版本: $FULL_VERSION"
 
 # -------------------------------
-# Step 2: 配置 SDK 和目录
+# Step 2: 配置路径
 # -------------------------------
 SDK_URL="https://downloads.openwrt.org/releases/23.05.2/targets/x86/64/openwrt-sdk-23.05.2-x86-64_gcc-12.3.0_musl.Linux-x86_64.tar.xz"
-SDK_DIR="openwrt-sdk-x86_64"
+SDK_DIR="openwrt-sdk"
 OUTPUT_DIR="bin/all-archs"
 CSS_DIR="temp_css"
-TEMP_DIR="temp_ipk"
 
-mkdir -p "$OUTPUT_DIR" "$CSS_DIR" "$TEMP_DIR"
+mkdir -p "$OUTPUT_DIR" "$CSS_DIR"
 
 # -------------------------------
-# Step 3: 下载并解压 SDK
+# Step 3: 下载 SDK（若未存在）
 # -------------------------------
 if [ ! -d "$SDK_DIR" ]; then
-  echo "📥 Downloading OpenWrt SDK..."
+  echo "📥 下载 OpenWrt SDK..."
   wget -qO- "$SDK_URL" | tar -xJ
-  mv openwrt-sdk-*-* "$SDK_DIR" || true
-  if [ ! -d "$SDK_DIR" ]; then
-    echo "❌ Failed to extract SDK" >&2
-    exit 1
-  fi
+  mv openwrt-sdk-* "$SDK_DIR" || true
 fi
 
 # -------------------------------
-# Step 4: 复制主题并准备编译
+# Step 4: 复制主题并编译
 # -------------------------------
-echo "📁 Copying luci-theme-kucat into SDK..."
+echo "📁 复制主题到 SDK..."
 cp -r luci-theme-kucat "$SDK_DIR/package/"
 
 cd "$SDK_DIR"
 
-# 更新 feeds
-echo "🔄 Updating feeds..."
+echo "🔄 更新 feeds..."
 ./scripts/feeds update -a
 ./scripts/feeds install -a
 
-# 构建
-echo "⚙️ Compiling luci-theme-kucat..."
+echo "⚙️ 编译中..."
 make defconfig
 make package/luci-theme-kucat/compile V=s
-
-# 返回根目录
-cd ..
 
 # -------------------------------
 # Step 5: 查找生成的 .ipk
 # -------------------------------
-IPK_SRC=$(find "$SDK_DIR/bin/packages" -path '*/luci-theme-kucat_${PKG_VERSION}*.ipk' | head -n1)
+IPK_SRC=$(find bin/packages -name "luci-theme-kucat_${PKG_VERSION}*.ipk" | head -n1)
 if [ -z "$IPK_SRC" ]; then
-  echo "❌ Error: No .ipk file generated in bin/packages/" >&2
-  find "$SDK_DIR/bin/packages" -name "*.ipk" || true
+  echo "❌ 错误：未生成 .ipk 文件！" >&2
   exit 1
 fi
-echo "✅ Found compiled IPK: $IPK_SRC"
+echo "✅ 找到 IPK: $IPK_SRC"
 
 # -------------------------------
-# Step 6: 下载未压缩的 CSS 文件
+# Step 6: 下载未压缩 CSS
 # -------------------------------
-echo "🎨 Downloading unminified CSS files..."
+echo "🎨 下载未压缩 CSS..."
 REPO_BASE="https://raw.githubusercontent.com/KuwiNet/KuCat/js/luci-theme-kucat/htdocs/luci-static/kucat/css"
-
-curl -fsSL "$REPO_BASE/theme.css" -o "$CSS_DIR/theme.css"
-curl -fsSL "$REPO_BASE/style.css" -o "$CSS_DIR/style.css"
-
-echo "📄 Downloaded CSS files:"
-ls -lh "$CSS_DIR/"
+curl -fsSL "$REPO_BASE/theme.css" -o "../$CSS_DIR/theme.css"
+curl -fsSL "$REPO_BASE/style.css" -o "../$CSS_DIR/style.css"
 
 # -------------------------------
-# Step 7: 解包 -> 替换 CSS -> 重新打包
+# Step 7: 重打包为 all 架构
 # -------------------------------
-repack_ipk() {
+repack_all_ipk() {
   local src_ipk="$1"
-  local output_ipk="$2"
+  local dst_ipk="$2"
+  local tmpdir=$(mktemp -d)
 
-  echo "🔧 Repacking: $src_ipk -> $output_ipk"
-
-  # 创建临时目录
-  local tmpdir=$(mktemp -d -p "$TEMP_DIR" 2>/dev/null || mktemp -d)
   cd "$tmpdir"
-
-  # 解包 .ipk (ar 格式)
   ar x "$src_ipk"
   tar -xzf data.tar.gz
   tar -xzf control.tar.gz
 
   # 替换 CSS
   mkdir -p htdocs/luci-static/kucat/css
-  cp "$CSS_DIR"/*.css htdocs/luci-static/kucat/css/
+  cp "../$CSS_DIR"/*.css htdocs/luci-static/kucat/css/
 
-  # 重新打包 data.tar.gz
+  # 重新打包
   tar -czf data.tar.gz htdocs --owner=0 --group=0
-
-  # 重新打包 .ipk
-  ar r "$output_ipk" debian-binary control.tar.gz data.tar.gz
+  ar r "$dst_ipk" debian-binary control.tar.gz data.tar.gz
 
   cd - > /dev/null
   rm -rf "$tmpdir"
-  echo "✅ Repacked: $output_ipk"
+  echo "✅ 已生成: $dst_ipk"
 }
 
-# 执行重打包
-FINAL_IPK="$OUTPUT_DIR/luci-theme-kucat_${FULL_VERSION}_x86_64.ipk"
-repack_ipk "$IPK_SRC" "$FINAL_IPK"
-
-# 可选：创建通用 all 包
-cp "$FINAL_IPK" "$OUTPUT_DIR/luci-theme-kucat_${FULL_VERSION}_all.ipk" 2>/dev/null || true
+FINAL_IPK="$OUTPUT_DIR/luci-theme-kucat_${FULL_VERSION}_all.ipk"
+repack_all_ipk "$IPK_SRC" "$FINAL_IPK"
 
 # -------------------------------
-# Step 8: 显示结果
+# Step 8: 完成
 # -------------------------------
-echo "🎉 Build Complete! Artifacts:"
+echo "🎉 构建完成！输出文件："
 ls -lh "$OUTPUT_DIR/"
 
-echo "💡 You can now upload these files or create a release."
+echo "💡 此 all 版本适用于所有 OpenWrt 设备。"
