@@ -12,7 +12,7 @@ PKG_NAME:=luci-theme-kucat  # 包名必须与目录名完全一致
 PKG_VERSION:=2.6.8          # 版本号（核心标识）
 PKG_RELEASE:=1              # 发布版本（迭代用）
 PKG_LICENSE:=Apache-2.0     # 开源许可证（可根据实际调整）
-PKG_MAINTAINER:=KuwiNet <contact@kuwinet.com>  # 作者信息
+PKG_MAINTAINER:=KuwiNet     # 作者信息
 
 # 引入 LuCI 专用编译规则（提供 compile/install 等目标，解决 No rule 错误）
 include $(TOPDIR)/feeds/luci/luci.mk
