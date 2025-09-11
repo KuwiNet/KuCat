@@ -1,4 +1,4 @@
-name: Build and Release .ipk
+name: Build and Release LuCI Theme Kucat
 
 on:
   push:
@@ -18,58 +18,27 @@ jobs:
       - name: Extract PKG_VERSION from Makefile
         id: get_version
         run: |
-          # 提取 luci-theme-kucat/Makefile 中的 PKG_VERSION
           VERSION=$(awk -F'[ =]+' '/^PKG_VERSION:/ {print $2}' luci-theme-kucat/Makefile | xargs)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+          echo "full_version=${VERSION}-r$(date +%Y%m%d)" >> $GITHUB_OUTPUT
 
       - name: Make build_auto.sh executable
-        run: |
-          chmod +x build_auto.sh
+        run: chmod +x build_auto.sh
 
       - name: Run build_auto.sh to generate .ipk
-        run: |
-          # 执行构建脚本
-          ./build_auto.sh
+        run: ./build_auto.sh
 
-      - name: Find generated .ipk files
-        id: find_ipk
+      - name: Verify generated .ipk files
         run: |
-          # 查找生成的 .ipk 文件（通常在 bin/packages/ 或类似目录）
-          # 你可以根据 build_auto.sh 的实际输出路径调整
-          IPK_PATH=$(find . -name "luci-theme-kucat*.ipk" | head -n1)
-          if [ -z "$IPK_PATH" ]; then
-            echo "Error: No .ipk file found!"
+          echo "🔍 Checking generated IPKs:"
+          find bin/all-archs -name "*.ipk" -ls
+          if ! ls bin/all-archs/*.ipk > /dev/null 2>&1; then
+            echo "❌ No .ipk files found in bin/all-archs/"
             exit 1
           fi
-          echo "Found IPK: $IPK_PATH"
-          echo "ipk_path=$IPK_PATH" >> $GITHUB_OUTPUT
-          echo "ipk_name=$(basename $IPK_PATH)" >> $GITHUB_OUTPUT
 
-      - name: Copy unminified CSS into .ipk (if needed)
-        run: |
-          # 1. 解包 .ipk
-          mkdir -p temp_ipk
-          cd temp_ipk
-          ar x "${{ steps.find_ipk.outputs.ipk_path }}"
-          tar -xzf data.tar.gz
-
-          # 2. 替换 CSS 文件
-          mkdir -p htdocs/luci-static/kucat/css
-          curl -fsSL https://raw.githubusercontent.com/KuwiNet/KuCat/js/luci-theme-kucat/htdocs/luci-static/kucat/css/cascade.css -o htdocs/luci-static/kucat/css/cascade.css
-          curl -fsSL https://raw.githubusercontent.com/KuwiNet/KuCat/js/luci-theme-kucat/htdocs/luci-static/kucat/css/style.css -o htdocs/luci-static/kucat/css/style.css
-
-          # 3. 重新打包 data.tar.gz
-          tar -czf data.tar.gz htdocs --owner=0 --group=0
-
-          # 4. 重新打包 .ipk
-          rm -f "${{ steps.find_ipk.outputs.ipk_path }}"
-          ar r "${{ steps.find_ipk.outputs.ipk_path }}" debian-binary control.tar.gz data.tar.gz
-
-          cd ..
-          echo "Repacked .ipk with uncompressed CSS."
-
-      - name: Create Release and Upload .ipk
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.get_version.outputs.tag }}
@@ -77,6 +46,6 @@ jobs:
           draft: false
           prerelease: false
           generate_release_notes: true
-          files: ${{ steps.find_ipk.outputs.ipk_path }}
+          files: bin/all-archs/*.ipk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
