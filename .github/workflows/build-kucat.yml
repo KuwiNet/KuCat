@@ -13,8 +13,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Install dependencies
         run: |
@@ -25,7 +23,7 @@ jobs:
               curl \
               coreutils \
               file \
-              libarchive-tools \
+              libarchive-tools \  # 包含 bsdtar
               arj \
               build-essential
 
