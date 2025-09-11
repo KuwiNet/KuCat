@@ -9,7 +9,7 @@ LUCI_PKGARCH:=all  # 通用架构
 # 版本和作者信息（统一维护点）
 PKG_NAME:=luci-theme-kucat
 PKG_VERSION:=2.6.8
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 PKG_LICENSE:=Apache-2.0
 PKG_MAINTAINER:=KuwiNet <contact@kuwinet.com>  # 作者信息
 
