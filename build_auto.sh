@@ -1,108 +1,136 @@
 #!/bin/bash
 set -e
 
-# 检查并设置SDK路径
+echo "? 构建 LuCI 主题 Kucat (all 架构专用版)"
+
+# -------------------------------
+# Step 1: 提取版本号
+# -------------------------------
+if [ ! -f "luci-theme-kucat/Makefile" ]; then
+  echo "❌ 错误：找不到 luci-theme-kucat/Makefile" >&2
+  exit 1
+fi
+
+PKG_VERSION=$(awk -F'[ =]+' '/^PKG_VERSION:/ {print $2; exit}' luci-theme-kucat/Makefile | xargs)
+if [ -z "$PKG_VERSION" ]; then
+  echo "❌ 错误：无法提取 PKG_VERSION" >&2
+  exit 1
+fi
+
+BUILD_DATE="r$(date +%Y%m%d)"
+FULL_VERSION="${PKG_VERSION}-${BUILD_DATE}"
+
+echo "? 版本: $PKG_VERSION"
+echo "? 构建日期: $BUILD_DATE"
+echo "✅ 完整版本: $FULL_VERSION"
+
+# -------------------------------
+# Step 2: 配置路径
+# -------------------------------
+SDK_URL="https://downloads.openwrt.org/releases/23.05.2/targets/x86/64/openwrt-sdk-23.05.2-x86-64_gcc-12.3.0_musl.Linux-x86_64.tar.xz"
 SDK_DIR="openwrt-sdk"
+# 直接使用SDK的输出目录作为最终输出目录
+OUTPUT_DIR="$SDK_DIR/bin/packages/x86_64/base"
+
+# -------------------------------
+# Step 3: 下载 SDK
+# -------------------------------
 if [ ! -d "$SDK_DIR" ]; then
-    echo "❌ SDK目录不存在: $SDK_DIR"
-    exit 1
+  echo "? 下载 OpenWrt SDK..."
+  wget -qO- "$SDK_URL" | tar -xJ
+  mv openwrt-sdk-* "$SDK_DIR" || true
 fi
 
-# 检查必要的SDK脚本
-REQUIRED_SCRIPTS=(
-    "scripts/rstrip.sh"
-    "scripts/ipkg-build"
-    "scripts/strip-kmod.sh"
-)
+if [ ! -d "$SDK_DIR" ]; then
+  echo "❌ 错误：SDK 目录缺失" >&2
+  exit 1
+fi
 
-for script in "${REQUIRED_SCRIPTS[@]}"; do
-    if [ ! -f "$SDK_DIR/$script" ]; then
-        echo "❌ 缺少必要的SDK脚本: $script"
-        exit 1
+# -------------------------------
+# Step 4: 复制主题 + 安装最小依赖
+# -------------------------------
+echo "? 复制主题到 SDK..."
+rm -rf "$SDK_DIR/package/luci-theme-kucat" 2>/dev/null || true
+cp -r luci-theme-kucat "$SDK_DIR/package/"
+
+cd "$SDK_DIR"
+
+echo "? 更新 feeds..."
+./scripts/feeds update -i
+./scripts/feeds update luci
+
+echo "? 安装最小依赖: luci-base"
+./scripts/feeds install -p luci luci-base
+
+make defconfig
+
+cd - > /dev/null
+
+echo "✅ 最小依赖安装完成"
+
+# -------------------------------
+# Step 5: 编译主题
+# -------------------------------
+echo "⚙️ 开始编译..."
+make -C "$SDK_DIR" package/luci-theme-kucat/compile V=s
+
+# -------------------------------
+# Step 6: 查找并验证编译生成的 IPK
+# -------------------------------
+# 匹配 SDK 编译输出的 IPK 路径
+IPK_GLOB="$OUTPUT_DIR/luci-theme-kucat_${PKG_VERSION}_*.ipk"
+IPK_REAL_SRC=$(ls $IPK_GLOB 2>/dev/null | head -n1 | xargs realpath 2>/dev/null)
+
+if [ ! -f "$IPK_REAL_SRC" ]; then
+  echo "❌ 错误：未找到编译生成的 .ipk 文件！期望路径格式：" >&2
+  echo "    $IPK_GLOB" >&2
+  # 辅助排查：列出所有可能的 IPK 文件
+  echo "当前 SDK 输出目录下的 IPK 文件："
+  find "$SDK_DIR/bin/packages" -type f -name "luci-theme-kucat_*.ipk" -ls 2>/dev/null || echo "无"
+  exit 1
+fi
+
+echo "✅ 找到编译生成的 IPK: $IPK_REAL_SRC"
+
+# 验证 IPK 文件格式有效性
+echo "? 验证 IPK 文件格式..."
+if ! ar t "$IPK_REAL_SRC" >/dev/null 2>&1; then
+  echo "⚠️ ar 工具验证失败，尝试使用 bsdtar 二次验证..."
+  if command -v bsdtar >/dev/null; then
+    if ! bsdtar -tf "$IPK_REAL_SRC" >/dev/null; then
+      echo "❌ IPK 文件损坏或格式不正确"
+      echo "文件信息: $(file "$IPK_REAL_SRC")"
+      echo "文件大小: $(du -h "$IPK_REAL_SRC")"
+      exit 1
+    else
+      echo "✅ bsdtar 验证通过（IPK 格式有效）"
     fi
-done
-
-# 设置环境变量
-export PATH="$SDK_DIR/staging_dir/host/bin:$PATH"
-export STAGING_DIR="$SDK_DIR/staging_dir"
-
-# 创建构建目录
-BUILD_DIR="$SDK_DIR/build_dir/target-x86_64_musl/luci-theme-kucat"
-mkdir -p "$BUILD_DIR/ipkg-all/luci-theme-kucat"
-mkdir -p "$BUILD_DIR/root"
-
-# 复制主题文件
-if [ -d "luci-theme-kucat/htdocs" ]; then
-    cp -a luci-theme-kucat/htdocs/* "$BUILD_DIR/root/"
-elif [ -d "luci-theme-kucat" ]; then
-    cp -a luci-theme-kucat/* "$BUILD_DIR/root/"
-else
-    echo "❌ 找不到主题文件"
+  else
+    echo "❌ 请安装 libarchive-tools 以验证 IPK：sudo apt-get install libarchive-tools"
     exit 1
+  fi
+else
+  echo "✅ ar 验证通过（IPK 格式有效）"
 fi
 
-# 清理CVS/SVN文件
-find "$BUILD_DIR/ipkg-all/luci-theme-kucat" \
-    -name 'CVS' -o -name '.svn' -o -name '.#*' -o -name '*~' | xargs -r rm -rf
+# -------------------------------
+# Step 7: 显示构建结果
+# -------------------------------
+echo -e "\n🎉 构建成功！最终文件信息："
+ls -lh "$IPK_REAL_SRC"
+echo "📁 输出路径：$IPK_REAL_SRC"
 
-# 执行rstrip
-export CROSS="x86_64-openwrt-linux-musl-"
-export NM="x86_64-openwrt-linux-musl-nm"
-export STRIP="$SDK_DIR/staging_dir/host/bin/sstrip -z"
-export STRIP_KMOD="$SDK_DIR/scripts/strip-kmod.sh"
-export PATCHELF="$SDK_DIR/staging_dir/host/bin/patchelf"
-"$SDK_DIR/scripts/rstrip.sh" "$BUILD_DIR/ipkg-all/luci-theme-kucat"
+# 导出版本号到 GitHub 环境变量
+echo "RELEASE_TAG=luci-theme-kucat-${FULL_VERSION}" >> $GITHUB_ENV
+echo "IPK_PATH=$IPK_REAL_SRC" >> $GITHUB_ENV  # 导出IPK路径方便后续处理
 
-# 创建control文件
-CONTROL_DIR="$BUILD_DIR/ipkg-all/luci-theme-kucat/CONTROL"
-mkdir -p "$CONTROL_DIR"
-
-cat > "$CONTROL_DIR/control" <<EOF
-Package: luci-theme-kucat
-Version: 2.6.17
-Depends: libc, luci
-Source: luci-theme-kucat
-Section: luci
-Maintainer: Your Name <your.email@example.com>
-Architecture: all
-Installed-Size: 1
-Description: KuCat Theme for LuCI
-EOF
-
-# 创建脚本文件
-cat > "$CONTROL_DIR/postinst" <<EOF
-#!/bin/sh
-[ "\${IPKG_NO_SCRIPT}" = "1" ] && exit 0
-[ -s "\${IPKG_INSTROOT}/lib/functions.sh" ] || exit 0
-. \${IPKG_INSTROOT}/lib/functions.sh
-default_postinst \$0 \$@
-EOF
-
-cat > "$CONTROL_DIR/prerm" <<EOF
-#!/bin/sh
-[ -s "\${IPKG_INSTROOT}/lib/functions.sh" ] || exit 0
-. \${IPKG_INSTROOT}/lib/functions.sh
-default_prerm \$0 \$@
-EOF
-
-chmod 0755 "$CONTROL_DIR/postinst" "$CONTROL_DIR/prerm"
-
-# 构建IPK
-mkdir -p "$SDK_DIR/bin/packages/x86_64/base"
-"$SDK_DIR/staging_dir/host/bin/fakeroot" \
-    "$SDK_DIR/staging_dir/host/bin/bash" \
-    "$SDK_DIR/scripts/ipkg-build" \
-    -m "" \
-    "$BUILD_DIR/ipkg-all/luci-theme-kucat" \
-    "$SDK_DIR/bin/packages/x86_64/base"
-
-# 复制IPK到输出目录
-mkdir -p bin/all-archs
-IPK_FILE=$(find "$SDK_DIR/bin/packages/x86_64/base" -name "*.ipk" | head -n 1)
-if [ -n "$IPK_FILE" ]; then
-    cp "$IPK_FILE" bin/all-archs/
-    echo "✅ IPK构建完成: $(basename "$IPK_FILE")"
-else
-    echo "❌ 无法找到生成的IPK文件"
-    exit 1
-fi
+# -------------------------------
+# 清理函数（可选）
+# -------------------------------
+cleanup() {
+  echo -e "\n? 清理临时文件..."
+  # 可选：清理SDK编译缓存
+  # make -C "$SDK_DIR" package/luci-theme-kucat/clean >/dev/null 2>&1
+  echo "✅ 清理完成"
+}
+trap cleanup EXIT
