@@ -158,10 +158,15 @@ repack_all_ipk() {
   tar -xzf data.tar.gz || { echo "❌ 解包 data.tar.gz 失败"; exit 1; }
   tar -xzf control.tar.gz || { echo "❌ 解包 control.tar.gz 失败"; exit 1; }
 
-  # 替换 CSS
+  # 修复CSS复制部分（原问题所在）
   mkdir -p htdocs/luci-static/kucat/css
-  cp "$CSS_DIR"/*.css htdocs/luci-static/kucat/css/
-  echo "✅ 已替换 CSS 文件"
+  if ls "$CSS_DIR"/*.css >/dev/null 2>&1; then
+    cp "$CSS_DIR"/*.css htdocs/luci-static/kucat/css/
+    echo "✅ 已替换 CSS 文件"
+  else
+    echo "❌ 错误：找不到CSS文件 in $CSS_DIR"
+    exit 1
+  fi
 
   # 重新打包
   tar -czf data.tar.gz htdocs --owner=0 --group=0
