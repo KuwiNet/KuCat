@@ -23,7 +23,7 @@ jobs:
               curl \
               coreutils \
               file \
-              libarchive-tools \  # 包含 bsdtar
+              libarchive-tools \
               arj \
               build-essential
 
