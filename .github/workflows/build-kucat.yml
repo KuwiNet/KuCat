@@ -16,8 +16,13 @@ jobs:
 
       - name: Install dependencies
         run: |
-        sudo apt-get update
-        sudo apt-get install -y wget binutils curl coreutils file libarchive-tools
+          sudo apt-get update
+          sudo apt-get install -y wget binutils curl coreutils file libarchive-tools
+
+      - name: Setup & Build
+        run: |
+          chmod +x build_auto.sh
+          ./build_auto.sh
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
@@ -27,7 +32,6 @@ jobs:
 
       # 可选：发布 Release
       - name: Create Release
-        id: create_release
         if: github.ref == 'refs/heads/js'
         uses: softprops/action-gh-release@v2
         with:
