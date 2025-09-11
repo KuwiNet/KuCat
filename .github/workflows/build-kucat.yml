@@ -6,7 +6,7 @@ on:
     branches: [ js ]
     paths:
       - 'luci-theme-kucat/**'
-      - '.github/workflows/build.yml'
+      - 'build_auto.sh'
   pull_request:
     branches: [ js ]
     paths:
