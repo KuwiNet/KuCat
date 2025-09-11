@@ -29,7 +29,6 @@ echo "✅ 完整版本: $FULL_VERSION"
 # -------------------------------
 SDK_URL="https://downloads.openwrt.org/releases/23.05.2/targets/x86/64/openwrt-sdk-23.05.2-x86-64_gcc-12.3.0_musl.Linux-x86_64.tar.xz "
 SDK_DIR="openwrt-sdk"
-# 直接使用SDK的输出目录作为最终输出目录
 OUTPUT_DIR="$SDK_DIR/bin/packages/x86_64/base"
 
 # -------------------------------
