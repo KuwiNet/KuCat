@@ -4,16 +4,19 @@ set -euo pipefail
 echo "? 构建 LuCI 主题 Kucat (通用all架构版)"
 
 # -------------------------------
-# Step 1: 提取版本号
+# Step 1: 从Makefile提取版本和作者信息
 # -------------------------------
 if [ ! -f "luci-theme-kucat/Makefile" ]; then
   echo "❌ 错误：找不到 luci-theme-kucat/Makefile" >&2
   exit 1
 fi
 
+# 从Makefile读取版本号（保持单一来源）
 PKG_VERSION=$(awk -F'[ =]+' '/^PKG_VERSION:/ {print $2; exit}' luci-theme-kucat/Makefile | xargs)
+PKG_MAINTAINER=$(awk -F'[ =]+' '/^PKG_MAINTAINER:/ {print substr($0, index($0, $2))}' luci-theme-kucat/Makefile | xargs)
+
 if [ -z "$PKG_VERSION" ]; then
-  echo "❌ 错误：无法提取 PKG_VERSION" >&2
+  echo "❌ 错误：无法从Makefile提取 PKG_VERSION" >&2
   exit 1
 fi
 
@@ -21,23 +24,24 @@ BUILD_DATE="r$(date +%Y%m%d)"
 FULL_VERSION="${PKG_VERSION}-${BUILD_DATE}"
 
 echo "? 版本: $PKG_VERSION"
+echo "? 作者: $PKG_MAINTAINER"
 echo "? 构建日期: $BUILD_DATE"
 echo "✅ 完整版本: $FULL_VERSION"
 
 # -------------------------------
-# Step 2: 配置通用SDK路径（任意架构均可，因主题与架构无关）
+# Step 2: 配置SDK路径
 # -------------------------------
-# 选择x86_64 SDK即可，因主题为all架构，编译结果适用于所有设备
-SDK_URL="https://downloads.openwrt.org/releases/23.05.2/targets/x86/64/openwrt-sdk-23.05.2-x86-64_gcc-12.3.0_musl.Linux-x86_64.tar.xz"
+OPENWRT_VERSION="23.05.3"
+SDK_URL="https://downloads.openwrt.org/releases/${OPENWRT_VERSION}/targets/x86/64/openwrt-sdk-${OPENWRT_VERSION}-x86-64_gcc-12.3.0_musl.Linux-x86_64.tar.xz"
 SDK_DIR="openwrt-sdk"
-OUTPUT_DIR="$SDK_DIR/bin/packages/x86_64/base"
+OUTPUT_DIR="$SDK_DIR/bin/packages/x86_64/luci"
 BUILD_LOG="build_log.txt"
 
 # -------------------------------
-# Step 3: 下载SDK（如未存在）
+# Step 3: 下载并准备SDK
 # -------------------------------
 if [ ! -d "$SDK_DIR" ]; then
-  echo "? 下载 OpenWrt SDK..."
+  echo "? 下载 OpenWrt SDK v${OPENWRT_VERSION}..."
   if ! wget -qO- "$SDK_URL" | tar -xJ; then
     echo "❌ 错误：下载或解压 SDK 失败" >&2
     exit 1
@@ -54,7 +58,7 @@ if [ ! -d "$SDK_DIR" ]; then
 fi
 
 # -------------------------------
-# Step 4: 复制主题并安装依赖
+# Step 4: 复制主题并安装完整依赖
 # -------------------------------
 echo "? 复制主题到 SDK..."
 rm -rf "$SDK_DIR/package/luci-theme-kucat" 2>/dev/null || true
@@ -68,22 +72,19 @@ cd "$SDK_DIR" || {
   exit 1
 }
 
-echo "? 更新 feeds..."
-./scripts/feeds update -i || {
+# 配置feeds确保依赖完整
+echo "? 配置并更新 feeds..."
+sed -i 's|^#\(src-git packages .*\)|\1|' feeds.conf.default
+sed -i 's|^#\(src-git luci .*\)|\1|' feeds.conf.default
+./scripts/feeds update -a || {
   echo "❌ 错误：更新 feeds 失败" >&2
   exit 1
 }
-./scripts/feeds update luci || {
-  echo "❌ 错误：更新 luci feeds 失败" >&2
-  exit 1
-}
 
-echo "? 安装最小依赖: luci-base"
-./scripts/feeds install -p luci luci-base || {
-  echo "❌ 错误：安装 luci-base 失败" >&2
-  exit 1
-}
-
+# 安装核心依赖（解决lua.h等缺失问题）
+echo "? 安装必要依赖..."
+./scripts/feeds install -p packages lua liblua || true
+./scripts/feeds install -p luci luci-base lucihttp rpcd ucode || true
 make defconfig || {
   echo "❌ 错误：生成默认配置失败" >&2
   exit 1
@@ -91,55 +92,41 @@ make defconfig || {
 
 cd - > /dev/null
 
-echo "✅ 最小依赖安装完成"
-
 # -------------------------------
-# Step 5: 编译主题（all架构）
+# Step 5: 编译主题
 # -------------------------------
-echo "⚙️ 开始编译通用all架构包..."
+echo "⚙️ 开始编译通用all架构包 (v${PKG_VERSION})..."
 if ! make -C "$SDK_DIR" package/luci-theme-kucat/compile V=s > "$BUILD_LOG" 2>&1; then
-  echo "❌ 错误：编译过程失败，查看日志：" >&2
+  echo "❌ 编译失败，查看日志：" >&2
   tail -n 100 "$BUILD_LOG" >&2
   exit 1
 fi
 
 # -------------------------------
-# Step 6: 查找并验证IPK
+# Step 6: 验证并输出结果
 # -------------------------------
-# 因PKGARCH=all，IPK文件名应包含"all"
 IPK_GLOB="$OUTPUT_DIR/luci-theme-kucat_${PKG_VERSION}_all.ipk"
 IPK_REAL_SRC=$(ls $IPK_GLOB 2>/dev/null | head -n1 | xargs realpath 2>/dev/null)
 
 if [ ! -f "$IPK_REAL_SRC" ]; then
-  echo "❌ 错误：未找到通用all架构IPK！期望路径：" >&2
-  echo "    $IPK_GLOB" >&2
-  echo "当前输出目录内容：" >&2
+  echo "❌ 未找到IPK文件！期望路径：$IPK_GLOB" >&2
   ls -la "$OUTPUT_DIR" >&2 || true
   exit 1
 fi
 
-echo "✅ 找到通用all架构IPK: $IPK_REAL_SRC"
+echo "✅ 找到通用IPK: $IPK_REAL_SRC"
 echo "📊 文件大小: $(du -h "$IPK_REAL_SRC")"
 
-# 验证IPK格式
-echo "? 验证IPK文件格式..."
-if ! ar t "$IPK_REAL_SRC" >/dev/null 2>&1; then
-  echo "⚠️ 尝试使用bsdtar验证..."
-  if ! bsdtar -tf "$IPK_REAL_SRC" >/dev/null; then
-    echo "❌ IPK文件损坏" >&2
-    exit 1
-  fi
+# 验证IPK完整性
+if ! ar t "$IPK_REAL_SRC" >/dev/null 2>&1 && ! bsdtar -tf "$IPK_REAL_SRC" >/dev/null; then
+  echo "❌ IPK文件损坏" >&2
+  exit 1
 fi
-echo "✅ IPK格式验证通过"
 
-# -------------------------------
-# Step 7: 输出结果
-# -------------------------------
-echo -e "\n🎉 通用all架构包构建成功！"
+echo -e "\n🎉 构建成功！版本: $FULL_VERSION"
 ls -lh "$IPK_REAL_SRC"
-echo "📁 输出路径：$IPK_REAL_SRC"
 
-# 导出版本和路径信息
+# 导出环境变量供CI使用
 echo "RELEASE_TAG=luci-theme-kucat-${FULL_VERSION}" >> $GITHUB_ENV
 echo "IPK_PATH=$IPK_REAL_SRC" >> $GITHUB_ENV
 echo "BUILD_LOG=$BUILD_LOG" >> $GITHUB_ENV
