@@ -1,89 +1,57 @@
-name: Build LuCI Theme
+name: 构建 LuCI 主题 Kucat
 
+# 触发条件：推送到js分支、手动触发、PR到js分支
 on:
   push:
     branches: [ js ]
     paths:
       - 'luci-theme-kucat/**'
+      - '.github/workflows/build.yml'
+  pull_request:
+    branches: [ js ]
+    paths:
+      - 'luci-theme-kucat/**'
       - 'build_auto.sh'
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout code
+      - name: 检出代码
         uses: actions/checkout@v4
 
-      - name: Setup OpenWrt SDK
-        run: |
-          # 下载并解压OpenWrt SDK
-          SDK_URL="https://downloads.openwrt.org/releases/21.02.3/targets/x86/64/openwrt-sdk-21.02.3-x86-64_gcc-8.4.0_musl.Linux-x86_64.tar.xz"
-          wget $SDK_URL -O sdk.tar.xz
-          tar -xf sdk.tar.xz
-          mv openwrt-sdk-* openwrt-sdk
-
-      - name: Install dependencies
+      - name: 安装依赖工具
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-              wget \
-              binutils \
-              curl \
-              coreutils \
-              file \
-              libarchive-tools \
-              arj \
-              build-essential \
+          sudo apt-get install -y build-essential libncurses5-dev libncursesw5-dev \
+            zlib1g-dev gawk git gettext libssl-dev xsltproc wget unzip python3 \
+            libarchive-tools
 
-      - name: Build theme
+      - name: 执行构建脚本
         run: |
-          chmod +x build_auto.sh
-          ./build_auto.sh 2>&1 | tee build.log
+          chmod +x build_auto.sh  # 确保脚本可执行
+          ./build_auto.sh  # 运行你的构建脚本
 
-      - name: Verify IPK format
-        run: |
-          mkdir -p bin/all-archs || true
-          
-          IPK_FILE=$(find . -name "*.ipk" | head -n 1)
-          if [ -z "$IPK_FILE" ]; then
-            echo "❌ No IPK file found"
-            exit 1
-          fi
-          
-          if ! ar t "$IPK_FILE" 2>/dev/null; then
-            echo "⚠️ ar验证失败，尝试使用bsdtar..."
-            if ! bsdtar -tf "$IPK_FILE" 2>/dev/null; then
-              echo "❌ 两种工具都无法验证IPK格式: $IPK_FILE"
-              exit 1
-            else
-              echo "✅ bsdtar验证通过: $IPK_FILE"
-              # 移动IPK到标准位置
-              mkdir -p bin/all-archs
-              mv "$IPK_FILE" bin/all-archs/
-            fi
-          else
-            echo "✅ ar验证通过: $IPK_FILE"
-            mkdir -p bin/all-archs
-            mv "$IPK_FILE" bin/all-archs/
-          fi
-
-      - name: Upload Artifact
+      - name: 上传IPK作为构建产物
         uses: actions/upload-artifact@v4
         with:
-          name: luci-theme-kucat
-          path: bin/all-archs/*.ipk
-          if-no-files-found: error
+          name: luci-theme-kucat-${{ env.RELEASE_TAG }}
+          path: ${{ env.IPK_PATH }}
+          retention-days: 90
 
-      - name: Create Release
-        if: github.ref == 'refs/heads/js'
+      - name: 创建GitHub Release
+        if: github.event_name != 'pull_request'  # PR时不创建Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: luci-theme-kucat-${{ github.sha }}
-          name: Release ${{ github.sha }}
-          body: "Automated build of LuCI Kucat theme"
-          draft: false
-          prerelease: false
-          generate_release_notes: true
-          files: bin/all-archs/*.ipk
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: Kucat 主题 ${{ env.RELEASE_TAG }}
+          body: |
+            ## 自动构建信息
+            - 版本: ${{ env.RELEASE_TAG }}
+            - 构建时间: ${{ github.event.head_commit.timestamp }}
+            - 提交哈希: ${{ github.sha }}
+          files: ${{ env.IPK_PATH }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
