@@ -1,18 +1,15 @@
-name: Auto Build KuCat on Changes
+name: Build KuCat Theme (v2.6.8)
 
-# 触发条件：修改主题文件或编译脚本时自动运行
 on:
   push:
-    branches: [ js ]  # 监测js分支的推送
-    paths:
-      - 'luci-theme-kucat/**'  # 主题文件修改时触发
-      - 'build_auto.sh'       # 编译脚本修改时触发
-  pull_request:
     branches: [ js ]
     paths:
       - 'luci-theme-kucat/**'
       - 'build_auto.sh'
-  workflow_dispatch:  # 保留手动触发选项
+      - '.github/workflows/build_kucat.yml'
+  pull_request:
+    branches: [ js ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -35,26 +32,28 @@ jobs:
             wget unzip python3 libarchive-tools
 
       - name: Run build script
-        run: ./build_auto.sh  # 直接调用编译脚本
+        run: ./build_auto.sh
 
-      - name: Upload all.ipk artifact
+      - name: Upload IPK artifact
         uses: actions/upload-artifact@v4
         with:
           name: luci-theme-kucat-all
-          path: ${{ env.IPK_PATH }}  # 从脚本导出的IPK路径
+          path: ${{ env.IPK_PATH }}
 
-      # 仅在推送到js分支时创建预发布（可选）
-      - name: Create pre-release for js branch
+      - name: Create pre-release
         if: github.event_name == 'push' && github.ref == 'refs/heads/js'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: pre-release-${{ github.sha }}  # 用commit哈希作为临时标签
-          name: KuCat Pre-release (js branch)
+          tag_name: v${{ env.RELEASE_TAG }}
+          name: KuCat Theme v${{ env.RELEASE_TAG }}
           body: |
-            自动构建于 ${{ github.sha }}
-            包含最新主题文件和脚本修改
+            ## KuCat Theme v${{ env.RELEASE_TAG }}
+            通用all架构版，适用于所有OpenWrt设备
+            
+            - 作者: KuwiNet
+            - 构建日期: $(date +%Y-%m-%d)
           files: ${{ env.IPK_PATH }}
-          prerelease: true  # 标记为预发布
+          prerelease: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     
