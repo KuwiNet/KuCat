@@ -125,30 +125,30 @@ repack_all_ipk() {
   echo "? 解包原始 IPK: $src_ipk"
   cd "$tmpdir"
 
-  # 尝试使用 ar 解包，失败则使用 bsdtar
-  if ! ar x "$src_ipk"; then
-    echo "ℹ️ 使用 bsdtar 解包..."
-    if ! bsdtar -xf "$src_ipk"; then
-      echo "❌ 解包失败：文件格式错误或损坏" >&2
-      exit 1
-    fi
+  # 尝试使用bsdtar解包
+  if command -v bsdtar >/dev/null; then
+    echo "ℹ️ 使用bsdtar解包..."
+    bsdtar -xf "$src_ipk" || { echo "❌ bsdtar解包失败"; exit 1; }
+  else
+    # 回退到ar解包
+    ar x "$src_ipk" || { echo "❌ ar解包失败"; exit 1; }
   fi
 
   # 解压内部文件
-  tar -xzf data.tar.gz || { echo "❌ 解包 data.tar.gz 失败" >&2; exit 1; }
-  tar -xzf control.tar.gz || { echo "❌ 解包 control.tar.gz 失败" >&2; exit 1; }
+  tar -xzf data.tar.gz || { echo "❌ 解包data.tar.gz失败"; exit 1; }
+  tar -xzf control.tar.gz || { echo "❌ 解包control.tar.gz失败"; exit 1; }
 
-  # 替换 CSS 文件
+  # 替换CSS文件
   mkdir -p htdocs/luci-static/kucat/css
   cp "$CSS_DIR"/*.css htdocs/luci-static/kucat/css/
-  echo "✅ 已替换 CSS 文件"
+  echo "✅ 已替换CSS文件"
 
-  # 重新打包为符合规范的 IPK
+  # 重新打包为符合规范的IPK
   echo "2.0" > debian-binary
   gzip -9nc control.tar > control.tar.gz
   gzip -9nc data.tar > data.tar.gz
   
-  # 使用 ar 创建标准格式的 IPK
+  # 使用ar创建标准格式的IPK
   ar cr "$dst_ipk" \
     debian-binary \
     control.tar.gz \
