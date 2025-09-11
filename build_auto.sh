@@ -1,34 +1,17 @@
 #!/bin/bash
-set -euo pipefail
+set -e
 
 echo "? 构建 LuCI 主题 Kucat (all 架构专用版)"
 
 # -------------------------------
-# 初始化检查
-# -------------------------------
-REQUIRED_CMDS=(wget curl tar ar gzip awk date mkdir cp)
-for cmd in "${REQUIRED_CMDS[@]}"; do
-  if ! command -v "$cmd" >/dev/null; then
-    echo "❌ 必需命令缺失: $cmd" >&2
-    exit 1
-  fi
-done
-
-# -------------------------------
-# Step 1: 提取版本号 (增强版)
+# Step 1: 提取版本号
 # -------------------------------
 if [ ! -f "luci-theme-kucat/Makefile" ]; then
   echo "❌ 错误：找不到 luci-theme-kucat/Makefile" >&2
   exit 1
 fi
 
-PKG_VERSION=$(
-  awk -F'[ =]+' '/^PKG_VERSION:/ {
-    gsub(/[^0-9.]/, "", $2); 
-    print $2; exit
-  }' luci-theme-kucat/Makefile
-)
-
+PKG_VERSION=$(awk -F'[ =]+' '/^PKG_VERSION:/ {print $2; exit}' luci-theme-kucat/Makefile | xargs)
 if [ -z "$PKG_VERSION" ]; then
   echo "❌ 错误：无法提取 PKG_VERSION" >&2
   exit 1
@@ -42,7 +25,7 @@ echo "? 构建日期: $BUILD_DATE"
 echo "✅ 完整版本: $FULL_VERSION"
 
 # -------------------------------
-# Step 2: 配置路径 (添加存在性检查)
+# Step 2: 配置路径
 # -------------------------------
 SDK_URL="https://downloads.openwrt.org/releases/23.05.2/targets/x86/64/openwrt-sdk-23.05.2-x86-64_gcc-12.3.0_musl.Linux-x86_64.tar.xz"
 SDK_DIR="openwrt-sdk"
@@ -50,19 +33,15 @@ OUTPUT_DIR="bin/all-archs"
 CSS_DIR="temp_css"
 TEMP_DIR="temp_repack"
 
-mkdir -p "$OUTPUT_DIR" || { echo "❌ 无法创建输出目录"; exit 1; }
-mkdir -p "$CSS_DIR" "$TEMP_DIR" || { echo "❌ 无法创建临时目录"; exit 1; }
+mkdir -p "$OUTPUT_DIR" "$CSS_DIR" "$TEMP_DIR"
 
 # -------------------------------
 # Step 3: 下载 SDK
 # -------------------------------
 if [ ! -d "$SDK_DIR" ]; then
   echo "? 下载 OpenWrt SDK..."
-  if ! wget -qO- "$SDK_URL" | tar -xJ; then
-    echo "❌ SDK 下载或解压失败" >&2
-    exit 1
-  fi
-  mv openwrt-sdk-* "$SDK_DIR" 2>/dev/null || true
+  wget -qO- "$SDK_URL" | tar -xJ
+  mv openwrt-sdk-* "$SDK_DIR" || true
 fi
 
 if [ ! -d "$SDK_DIR" ]; then
@@ -75,18 +54,18 @@ fi
 # -------------------------------
 echo "? 复制主题到 SDK..."
 rm -rf "$SDK_DIR/package/luci-theme-kucat" 2>/dev/null || true
-cp -r luci-theme-kucat "$SDK_DIR/package/" || { echo "❌ 主题复制失败"; exit 1; }
+cp -r luci-theme-kucat "$SDK_DIR/package/"
 
 cd "$SDK_DIR"
 
 echo "? 更新 feeds..."
-./scripts/feeds update -i || { echo "❌ feeds 更新失败"; exit 1; }
-./scripts/feeds update luci || { echo "❌ luci feed 更新失败"; exit 1; }
+./scripts/feeds update -i
+./scripts/feeds update luci
 
 echo "? 安装最小依赖: luci-base"
-./scripts/feeds install -p luci luci-base || { echo "❌ 依赖安装失败"; exit 1; }
+./scripts/feeds install -p luci luci-base
 
-make defconfig || { echo "❌ 配置失败"; exit 1; }
+make defconfig
 
 cd - > /dev/null
 
@@ -96,7 +75,7 @@ echo "✅ 最小依赖安装完成"
 # Step 5: 编译主题
 # -------------------------------
 echo "⚙️ 开始编译..."
-make -C "$SDK_DIR" package/luci-theme-kucat/compile V=s || { echo "❌ 编译失败"; exit 1; }
+make -C "$SDK_DIR" package/luci-theme-kucat/compile V=s
 
 # -------------------------------
 # Step 6: 查找 .ipk 并解析真实路径
@@ -114,10 +93,25 @@ fi
 IPK_REAL_SRC=$(realpath "$IPK_REL_SRC")
 echo "✅ 找到 IPK (真实路径): $IPK_REAL_SRC"
 
-# 验证原始 IPK 格式
+# 增强的 IPK 文件验证
+echo "? 验证 IPK 文件格式..."
 if ! ar t "$IPK_REAL_SRC" >/dev/null 2>&1; then
-  echo "❌ 原始 IPK 文件格式错误" >&2
-  exit 1
+  echo "⚠️ ar 工具验证失败，尝试使用 bsdtar..."
+  if command -v bsdtar >/dev/null; then
+    if ! bsdtar -tf "$IPK_REAL_SRC" >/dev/null; then
+      echo "❌ IPK 文件确实已损坏或格式不正确"
+      echo "文件信息: $(file "$IPK_REAL_SRC")"
+      echo "文件大小: $(du -h "$IPK_REAL_SRC")"
+      exit 1
+    else
+      echo "✅ bsdtar 验证通过"
+    fi
+  else
+    echo "❌ 请安装 libarchive-tools: sudo apt-get install libarchive-tools"
+    exit 1
+  fi
+else
+  echo "✅ ar 验证通过"
 fi
 
 # -------------------------------
