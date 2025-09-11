@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail  # 更严格的错误检查
 
 echo "? 构建 LuCI 主题 Kucat (all 架构专用版)"
 
@@ -29,16 +29,24 @@ echo "✅ 完整版本: $FULL_VERSION"
 # -------------------------------
 SDK_URL="https://downloads.openwrt.org/releases/23.05.2/targets/x86/64/openwrt-sdk-23.05.2-x86-64_gcc-12.3.0_musl.Linux-x86_64.tar.xz"
 SDK_DIR="openwrt-sdk"
-# 直接使用SDK的输出目录作为最终输出目录
 OUTPUT_DIR="$SDK_DIR/bin/packages/x86_64/base"
+
+# 新增：记录日志文件路径
+BUILD_LOG="build_log.txt"
 
 # -------------------------------
 # Step 3: 下载 SDK
 # -------------------------------
 if [ ! -d "$SDK_DIR" ]; then
   echo "? 下载 OpenWrt SDK..."
-  wget -qO- "$SDK_URL" | tar -xJ
-  mv openwrt-sdk-* "$SDK_DIR" || true
+  if ! wget -qO- "$SDK_URL" | tar -xJ; then
+    echo "❌ 错误：下载或解压 SDK 失败" >&2
+    exit 1
+  fi
+  mv openwrt-sdk-* "$SDK_DIR" || {
+    echo "❌ 错误：重命名 SDK 目录失败" >&2
+    exit 1
+  }
 fi
 
 if [ ! -d "$SDK_DIR" ]; then
@@ -51,46 +59,74 @@ fi
 # -------------------------------
 echo "? 复制主题到 SDK..."
 rm -rf "$SDK_DIR/package/luci-theme-kucat" 2>/dev/null || true
-cp -r luci-theme-kucat "$SDK_DIR/package/"
+cp -r luci-theme-kucat "$SDK_DIR/package/" || {
+  echo "❌ 错误：复制主题文件失败" >&2
+  exit 1
+}
 
-cd "$SDK_DIR"
+cd "$SDK_DIR" || {
+  echo "❌ 错误：无法进入 SDK 目录" >&2
+  exit 1
+}
 
 echo "? 更新 feeds..."
-./scripts/feeds update -i
-./scripts/feeds update luci
+./scripts/feeds update -i || {
+  echo "❌ 错误：更新 feeds 失败" >&2
+  exit 1
+}
+./scripts/feeds update luci || {
+  echo "❌ 错误：更新 luci feeds 失败" >&2
+  exit 1
+}
 
 echo "? 安装最小依赖: luci-base"
-./scripts/feeds install -p luci luci-base
+./scripts/feeds install -p luci luci-base || {
+  echo "❌ 错误：安装 luci-base 失败" >&2
+  exit 1
+}
 
-make defconfig
+make defconfig || {
+  echo "❌ 错误：生成默认配置失败" >&2
+  exit 1
+}
 
 cd - > /dev/null
 
 echo "✅ 最小依赖安装完成"
 
 # -------------------------------
-# Step 5: 编译主题
+# Step 5: 编译主题（带详细日志）
 # -------------------------------
 echo "⚙️ 开始编译..."
-make -C "$SDK_DIR" package/luci-theme-kucat/compile V=s
+if ! make -C "$SDK_DIR" package/luci-theme-kucat/compile V=s > "$BUILD_LOG" 2>&1; then
+  echo "❌ 错误：编译过程失败，查看日志：" >&2
+  tail -n 100 "$BUILD_LOG" >&2  # 显示最后100行日志
+  exit 1
+fi
 
 # -------------------------------
 # Step 6: 查找并验证编译生成的 IPK
 # -------------------------------
-# 匹配 SDK 编译输出的 IPK 路径
 IPK_GLOB="$OUTPUT_DIR/luci-theme-kucat_${PKG_VERSION}_*.ipk"
 IPK_REAL_SRC=$(ls $IPK_GLOB 2>/dev/null | head -n1 | xargs realpath 2>/dev/null)
 
 if [ ! -f "$IPK_REAL_SRC" ]; then
   echo "❌ 错误：未找到编译生成的 .ipk 文件！期望路径格式：" >&2
   echo "    $IPK_GLOB" >&2
-  # 辅助排查：列出所有可能的 IPK 文件
-  echo "当前 SDK 输出目录下的 IPK 文件："
-  find "$SDK_DIR/bin/packages" -type f -name "luci-theme-kucat_*.ipk" -ls 2>/dev/null || echo "无"
+  echo "当前 SDK 输出目录内容：" >&2
+  ls -la "$OUTPUT_DIR" >&2 || true
   exit 1
 fi
 
+# 检查文件大小
+IPK_SIZE=$(du -k "$IPK_REAL_SRC" | cut -f1)
+if [ "$IPK_SIZE" -lt 10000 ]; then  # 小于10KB则视为异常
+  echo "⚠️ 警告：IPK 文件大小异常（$IPK_SIZE KB），可能不完整" >&2
+  # 不直接退出，继续验证流程以便收集更多信息
+fi
+
 echo "✅ 找到编译生成的 IPK: $IPK_REAL_SRC"
+echo "📊 IPK 文件大小: $(du -h "$IPK_REAL_SRC")"
 
 # 验证 IPK 文件格式有效性
 echo "? 验证 IPK 文件格式..."
@@ -98,15 +134,15 @@ if ! ar t "$IPK_REAL_SRC" >/dev/null 2>&1; then
   echo "⚠️ ar 工具验证失败，尝试使用 bsdtar 二次验证..."
   if command -v bsdtar >/dev/null; then
     if ! bsdtar -tf "$IPK_REAL_SRC" >/dev/null; then
-      echo "❌ IPK 文件损坏或格式不正确"
-      echo "文件信息: $(file "$IPK_REAL_SRC")"
-      echo "文件大小: $(du -h "$IPK_REAL_SRC")"
+      echo "❌ IPK 文件损坏或格式不正确" >&2
+      echo "文件内容分析：" >&2
+      file "$IPK_REAL_SRC" >&2
       exit 1
     else
       echo "✅ bsdtar 验证通过（IPK 格式有效）"
     fi
   else
-    echo "❌ 请安装 libarchive-tools 以验证 IPK：sudo apt-get install libarchive-tools"
+    echo "❌ 请安装 libarchive-tools 以验证 IPK：sudo apt-get install libarchive-tools" >&2
     exit 1
   fi
 else
@@ -122,7 +158,8 @@ echo "📁 输出路径：$IPK_REAL_SRC"
 
 # 导出版本号到 GitHub 环境变量
 echo "RELEASE_TAG=luci-theme-kucat-${FULL_VERSION}" >> $GITHUB_ENV
-echo "IPK_PATH=$IPK_REAL_SRC" >> $GITHUB_ENV  # 导出IPK路径方便后续处理
+echo "IPK_PATH=$IPK_REAL_SRC" >> $GITHUB_ENV
+echo "BUILD_LOG=$BUILD_LOG" >> $GITHUB_ENV  # 导出日志路径
 
 # -------------------------------
 # 清理函数（可选）
