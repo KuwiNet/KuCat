@@ -115,23 +115,35 @@ else
 fi
 
 # -------------------------------
-# Step 7: 下载未压缩 CSS (容错改进版)
+# Step 7: 下载未压缩 CSS (增强版)
 # -------------------------------
 echo "? 下载未压缩 CSS..."
 REPO_BASE="https://raw.githubusercontent.com/KuwiNet/KuCat/js/luci-theme-kucat/htdocs/luci-static/kucat/css"
 
-CSS_FILES=(theme.css style.css)
-for css in "${CSS_FILES[@]}"; do
-  if ! curl -fsSL "$REPO_BASE/$css" -o "$CSS_DIR/$css"; then
-    echo "⚠️ 警告: 无法下载 $css，尝试使用本地版本" >&2
-    [ -f "luci-theme-kucat/htdocs/luci-static/kucat/css/$css" ] && \
-      cp "luci-theme-kucat/htdocs/luci-static/kucat/css/$css" "$CSS_DIR/"
+# 确保 CSS 目录存在且绝对路径
+CSS_DIR="$(pwd)/temp_css"
+mkdir -p "$CSS_DIR"
+
+# 添加下载重试机制
+for retry in {1..3}; do
+  echo "  尝试 #$retry 下载 CSS 文件..."
+  if curl -fsSL "$REPO_BASE/theme.css" -o "$CSS_DIR/theme.css" && 
+     curl -fsSL "$REPO_BASE/style.css" -o "$CSS_DIR/style.css"; then
+    echo "   ✔ 成功下载 CSS 文件"
+    break
   fi
-  [ -f "$CSS_DIR/$css" ] && echo "   ✔ $css" || echo "   ❌ $css"
+  
+  if [ $retry -eq 3 ]; then
+    echo "❌ CSS 下载失败，请检查网络连接或仓库地址"
+    exit 1
+  fi
+  sleep 2
 done
 
+# 添加文件存在性验证
 if [ ! -f "$CSS_DIR/theme.css" ] || [ ! -f "$CSS_DIR/style.css" ]; then
-  echo "❌ CSS 文件缺失" >&2
+  echo "❌ CSS 文件验证失败，路径: $CSS_DIR"
+  ls -la "$CSS_DIR" || true
   exit 1
 fi
 
@@ -142,6 +154,14 @@ repack_all_ipk() {
   local src_ipk="$1"
   local dst_ipk="$2"
   local tmpdir=$(mktemp -d --tmpdir="$TEMP_DIR" 2>/dev/null || mktemp -d)
+
+  # 添加 CSS 目录验证
+  echo "? 验证 CSS 文件路径..."
+  if [ ! -f "$CSS_DIR/theme.css" ] || [ ! -f "$CSS_DIR/style.css" ]; then
+    echo "❌ 错误：CSS 文件缺失于 $CSS_DIR"
+    ls -la "$CSS_DIR" || true
+    exit 1
+  fi
 
   echo "? 解包原始 IPK: $src_ipk"
   cd "$tmpdir"
