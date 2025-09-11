@@ -14,12 +14,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup & Build
+      - name: Install dependencies
         run: |
-          chmod +x build_auto.sh
-          sudo apt-get update
-          sudo apt-get install -y wget binutils curl coreutils file
-          ./build_auto.sh
+        sudo apt-get update
+        sudo apt-get install -y wget binutils curl coreutils file libarchive-tools
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
