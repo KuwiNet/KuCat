@@ -10,7 +10,7 @@ THEME_TITLE:=Kucat Theme
 PKG_NAME:=luci-theme-$(THEME_NAME)
 LUCI_TITLE:=Kucat Theme by KuwiNet
 LUCI_DEPENDS:=
-PKG_VERSION:=2.6.17
+PKG_VERSION:=2.6.16
 PKG_RELEASE:=20250911
 
 define Package/luci-theme-$(THEME_NAME)/conffiles
