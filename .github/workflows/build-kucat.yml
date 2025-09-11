@@ -34,7 +34,6 @@ jobs:
               libarchive-tools \
               arj \
               build-essential \
-              bsdtar
 
       - name: Build theme
         run: |
