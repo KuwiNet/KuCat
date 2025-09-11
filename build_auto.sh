@@ -84,28 +84,23 @@ echo "⚙️ 开始编译 luci-theme-kucat..."
 make -C "$SDK_DIR" package/luci-theme-kucat/compile V=s
 
 # -------------------------------
-# Step 6: 查找生成的 .ipk 文件（必须用绝对路径）
+# Step 6: 查找并解析真实路径
 # -------------------------------
 IPK_GLOB="$SDK_DIR/bin/packages/x86_64/base/luci-theme-kucat_${PKG_VERSION}_*.ipk"
 IPK_REL_SRC=$(ls $IPK_GLOB 2>/dev/null | head -n1)
 
 if [ ! -f "$IPK_REL_SRC" ]; then
-  echo "❌ 错误：未找到 .ipk 文件！期望路径：" >&2
-  echo "    $IPK_GLOB" >&2
-  echo "🔍 实际存在的文件：" >&2
-  find "$SDK_DIR/bin/packages" -type f -name "*.ipk" -ls 2>/dev/null || echo "无"
+  echo "❌ 未找到 .ipk 文件"
   exit 1
 fi
 
-# 转为绝对路径
+# 转为真实绝对路径（解决 symlink）
 IPK_ABS_SRC=$(realpath "$IPK_REL_SRC")
-echo "✅ 找到 IPK (绝对路径): $IPK_ABS_SRC"
+echo "✅ 找到 IPK (真实路径): $IPK_ABS_SRC"
 
-# 调试：确认存在
-if [ ! -f "$IPK_ABS_SRC" ]; then
-  echo "❌ 致命错误：文件应存在但找不到！" >&2
-  exit 1
-fi
+# 调试
+ls -la "$IPK_ABS_SRC"
+file "$IPK_ABS_SRC"
 
 # -------------------------------
 # Step 7: 下载未压缩 CSS
