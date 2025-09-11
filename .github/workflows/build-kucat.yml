@@ -1,4 +1,4 @@
-name: Build and Release LuCI Theme Kucat
+name: Build LuCI Theme Kucat
 
 on:
   push:
@@ -6,46 +6,40 @@ on:
       - 'luci-theme-kucat/**'
       - 'build_auto.sh'
     branches:
-      - js
+      - js  # 改为你的分支名
 
 jobs:
-  build-and-release:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Source Code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Extract PKG_VERSION for Release Tag
-        id: get_version
+      - name: Extract Version
+        id: version
         run: |
-          VERSION=$(awk -F'[ =]+' '/^PKG_VERSION:/ {print $2}' luci-theme-kucat/Makefile | xargs)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          ver=$(awk -F'[ =]+' '/^PKG_VERSION:/ {print $2}' luci-theme-kucat/Makefile | xargs)
+          echo "version=$ver" >> $GITHUB_OUTPUT
+          echo "tag=v$ver" >> $GITHUB_OUTPUT
 
-      - name: Make Build Script Executable
-        run: chmod +x build_auto.sh
-
-      - name: Install Dependencies
+      - name: Setup
         run: |
+          chmod +x build_auto.sh
           sudo apt-get update
-          sudo apt-get install -y wget tar xz-utils binutils
+          sudo apt-get install -y wget binutils
 
-      - name: Run Build Script
+      - name: Run Build
         run: ./build_auto.sh
 
-      - name: Verify Output
-        run: |
-          echo "🔍 Final IPK files:"
-          find bin/all-archs -type f -name "*.ipk" -ls
-
-      - name: Create GitHub Release
+      - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.get_version.outputs.version }}
-          name: Release v${{ steps.get_version.outputs.version }}
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Release ${{ steps.version.outputs.tag }}
+          generate_release_notes: true
           draft: false
           prerelease: false
-          generate_release_notes: true
           files: bin/all-archs/*.ipk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
