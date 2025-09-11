@@ -30,8 +30,6 @@ jobs:
       - name: Setup & Build
         run: |
           chmod +x build_auto.sh
-          sudo apt-get update
-          sudo apt-get install -y wget binutils curl coreutils file bsdtar
           ./build_auto.sh 2>&1 | tee build.log
 
       - name: Verify IPK format
