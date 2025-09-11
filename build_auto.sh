@@ -50,20 +50,35 @@ if [ ! -d "$SDK_DIR" ]; then
 fi
 
 # -------------------------------
-# Step 4: 复制主题并编译（使用 make -C，不 cd）
+# Step 4: 复制主题 + 安装 LuCI Feed
 # -------------------------------
 echo "📁 复制主题到 SDK..."
 rm -rf "$SDK_DIR/package/luci-theme-kucat" 2>/dev/null || true
 cp -r luci-theme-kucat "$SDK_DIR/package/"
 
-echo "🔄 更新 feeds..."
-make -C "$SDK_DIR" defconfig
+# 进入 SDK 目录安装 feeds（必须）
+cd "$SDK_DIR"
 
-echo "⚙️ 编译中..."
+echo "🔄 更新并安装 LuCI feed..."
+./scripts/feeds update -i
+./scripts/feeds update luci
+./scripts/feeds install -p luci -a
+
+# 确保生成 .config
+make defconfig
+
+cd - > /dev/null
+
+echo "✅ LuCI 依赖已安装"
+
+# -------------------------------
+# Step 5: 编译主题
+# -------------------------------
+echo "⚙️ 开始编译 luci-theme-kucat..."
 make -C "$SDK_DIR" package/luci-theme-kucat/compile V=s
 
 # -------------------------------
-# Step 5: 查找生成的 .ipk 文件（使用绝对路径）
+# Step 6: 查找生成的 .ipk 文件
 # -------------------------------
 IPK_GLOB="$SDK_DIR/bin/packages/x86_64/base/luci-theme-kucat_${PKG_VERSION}_*.ipk"
 IPK_ABS_SRC=$(ls $IPK_GLOB 2>/dev/null | head -n1)
@@ -79,7 +94,7 @@ fi
 echo "✅ 找到 IPK (绝对路径): $IPK_ABS_SRC"
 
 # -------------------------------
-# Step 6: 下载未压缩 CSS
+# Step 7: 下载未压缩 CSS
 # -------------------------------
 echo "🎨 下载未压缩 CSS..."
 REPO_BASE="https://raw.githubusercontent.com/KuwiNet/KuCat/js/luci-theme-kucat/htdocs/luci-static/kucat/css"
@@ -93,7 +108,7 @@ if [ ! -f "$CSS_DIR/theme.css" ] || [ ! -f "$CSS_DIR/style.css" ]; then
 fi
 
 # -------------------------------
-# Step 7: 重打包函数
+# Step 8: 重打包函数
 # -------------------------------
 repack_all_ipk() {
   local src_ipk="$1"
@@ -103,20 +118,17 @@ repack_all_ipk() {
   echo "🔧 解包原始 IPK: $src_ipk"
   cd "$tmpdir"
 
-  # 解包 ar 归档
   ar x "$src_ipk" || { echo "❌ ar x 失败"; exit 1; }
   tar -xzf data.tar.gz || { echo "❌ 解包 data.tar.gz 失败"; exit 1; }
   tar -xzf control.tar.gz || { echo "❌ 解包 control.tar.gz 失败"; exit 1; }
 
-  # 替换 CSS 文件
+  # 替换 CSS
   mkdir -p htdocs/luci-static/kucat/css
   cp "$CSS_DIR"/*.css htdocs/luci-static/kucat/css/
   echo "✅ 已替换 CSS 文件"
 
-  # 重新打包 data.tar.gz
+  # 重新打包
   tar -czf data.tar.gz htdocs --owner=0 --group=0
-
-  # 重新打包 .ipk
   ar r "$dst_ipk" debian-binary control.tar.gz data.tar.gz
 
   cd - > /dev/null
@@ -125,13 +137,13 @@ repack_all_ipk() {
 }
 
 # -------------------------------
-# Step 8: 执行重打包
+# Step 9: 执行重打包
 # -------------------------------
 FINAL_IPK="$OUTPUT_DIR/luci-theme-kucat_${FULL_VERSION}_all.ipk"
 repack_all_ipk "$IPK_ABS_SRC" "$FINAL_IPK"
 
 # -------------------------------
-# Step 9: 显示输出
+# Step 10: 显示输出
 # -------------------------------
 echo "🎉 构建成功！最终文件："
 ls -lh "$FINAL_IPK"
