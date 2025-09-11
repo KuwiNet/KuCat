@@ -19,6 +19,7 @@ jobs:
         id: get_version
         run: |
           VERSION=$(awk -F'[ =]+' '/^PKG_VERSION:/ {print $2}' luci-theme-kucat/Makefile | xargs)
+          echo "Extracted PKG_VERSION: $VERSION"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=v$VERSION" >> $GITHUB_OUTPUT
 
@@ -33,29 +34,23 @@ jobs:
 
       - name: Build .ipk package
         run: |
-          cd luci-theme-kucat
-          # 创建 data.tar.gz
-          tar -czf ../out/data.tar.gz htdocs --owner=0 --group=0
-          cd ..
+          # Create data.tar.gz
+          tar -czf out/data.tar.gz -C luci-theme-kucat htdocs --owner=0 --group=0
 
-          # 创建 control.tar.gz
+          # Create control file
           mkdir -p tmp_control
-          cat > tmp_control/control << EOF
-Package: luci-theme-kucat
-Version: ${{ steps.get_version.outputs.version }}
-Section: luci
-Category: Themes
-Architecture: all
-Maintainer: KuwiNet
-Description: A beautiful LuCI theme
-EOF
+          printf 'Package: luci-theme-kucat\nVersion: %s\nSection: luci\nCategory: Themes\nArchitecture: all\nMaintainer: KuwiNet\nDescription: A beautiful LuCI theme\n' \
+            "${{ steps.get_version.outputs.version }}" > tmp_control/control
+
+          # Create control.tar.gz
           tar -czf out/control.tar.gz -C tmp_control . --owner=0 --group=0
 
-          # 创建 debian-binary
+          # Create debian-binary
           echo "2.0" > out/debian-binary
 
-          # 合并成 .ipk
-          ar r out/luci-theme-kucat_${{ steps.get_version.outputs.version }}_all.ipk out/debian-binary out/control.tar.gz out/data.tar.gz
+          # Assemble .ipk
+          ar r out/luci-theme-kucat_${{ steps.get_version.outputs.version }}_all.ipk \
+            out/debian-binary out/control.tar.gz out/data.tar.gz
 
       - name: Create Release and Upload .ipk
         uses: softprops/action-gh-release@v2
