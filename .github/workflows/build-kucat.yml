@@ -11,7 +11,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Setup & Build
         run: |
@@ -21,16 +22,19 @@ jobs:
           ./build_auto.sh
 
       - name: Upload Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4  # ✅ 修复：v3 → v4
         with:
           path: bin/all-archs/*.ipk
+          if-no-files-found: error
 
+      # 可选：发布 Release
       - name: Create Release
+        id: create_release
         if: github.ref == 'refs/heads/js'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.version.outputs.tag }}
-          name: Release v${{ steps.version.outputs.tag }}
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: Release ${{ env.RELEASE_TAG }}
           generate_release_notes: true
           files: bin/all-archs/*.ipk
         env:
