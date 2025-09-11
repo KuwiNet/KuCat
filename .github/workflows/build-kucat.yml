@@ -1,48 +1,79 @@
 name: 构建 LuCI 主题 Kucat
 
-# 触发条件：推送到js分支、手动触发、PR到js分支
+# 触发条件调整为js分支
 on:
   push:
-    branches: [ js ]
+    branches: [ js ]  # 改为js分支
     paths:
       - 'luci-theme-kucat/**'
       - '.github/workflows/build.yml'
+      - 'build_auto.sh'
   pull_request:
-    branches: [ js ]
+    branches: [ js ]  # PR目标分支改为js
     paths:
       - 'luci-theme-kucat/**'
-      - 'build_auto.sh'
-  workflow_dispatch:
+  workflow_dispatch:  # 手动触发不受分支限制
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
 
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          ref: ${{ github.ref }}  # 明确检出当前触发的分支（通常是js）
 
       - name: 安装依赖工具
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential libncurses5-dev libncursesw5-dev \
-            zlib1g-dev gawk git gettext libssl-dev xsltproc wget unzip python3 \
-            libarchive-tools
+          sudo apt-get install -y \
+            build-essential \
+            libncurses5-dev \
+            libncursesw5-dev \
+            zlib1g-dev \
+            gawk \
+            git \
+            gettext \
+            libssl-dev \
+            xsltproc \
+            wget \
+            unzip \
+            python3 \
+            libarchive-tools \
+            file
+
+      - name: 显示系统信息（用于排查）
+        run: |
+          df -h
+          free -m
+          uname -a
+          lsb_release -a
 
       - name: 执行构建脚本
         run: |
-          chmod +x build_auto.sh  # 确保脚本可执行
-          ./build_auto.sh  # 运行你的构建脚本
+          chmod +x build_auto.sh
+          ./build_auto.sh
 
       - name: 上传IPK作为构建产物
         uses: actions/upload-artifact@v4
         with:
           name: luci-theme-kucat-${{ env.RELEASE_TAG }}
           path: ${{ env.IPK_PATH }}
-          retention-days: 90
+          retention-days: 14
+
+      - name: 上传构建日志（用于排查错误）
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: ${{ env.BUILD_LOG }}
+          retention-days: 14
 
       - name: 创建GitHub Release
-        if: github.event_name != 'pull_request'  # PR时不创建Release
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/js'  # 仅在js分支推送时创建Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_TAG }}
@@ -52,6 +83,7 @@ jobs:
             - 版本: ${{ env.RELEASE_TAG }}
             - 构建时间: ${{ github.event.head_commit.timestamp }}
             - 提交哈希: ${{ github.sha }}
+            - 构建分支: js
           files: ${{ env.IPK_PATH }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
