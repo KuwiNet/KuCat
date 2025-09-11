@@ -10,7 +10,7 @@ THEME_TITLE:=Kucat Theme
 PKG_NAME:=luci-theme-$(THEME_NAME)
 LUCI_TITLE:=Kucat Theme by KuwiNet
 LUCI_DEPENDS:=
-PKG_VERSION:=2.6.18
+PKG_VERSION:=2.7.0
 
 # 关键修改：自定义安装规则，跳过style.css压缩
 define Package/luci-theme-$(THEME_NAME)/install
