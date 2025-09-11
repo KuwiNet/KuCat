@@ -50,26 +50,32 @@ if [ ! -d "$SDK_DIR" ]; then
 fi
 
 # -------------------------------
-# Step 4: 复制主题 + 安装 LuCI Feed
+# Step 4: 复制主题 + 安装最小 LuCI 依赖
 # -------------------------------
 echo "📁 复制主题到 SDK..."
 rm -rf "$SDK_DIR/package/luci-theme-kucat" 2>/dev/null || true
 cp -r luci-theme-kucat "$SDK_DIR/package/"
 
-# 进入 SDK 目录安装 feeds（必须）
+# 进入 SDK 目录安装 feeds
 cd "$SDK_DIR"
 
-echo "🔄 更新并安装 LuCI feed..."
+echo "🔄 更新 feeds..."
 ./scripts/feeds update -i
 ./scripts/feeds update luci
-./scripts/feeds install -p luci -a
 
-# 确保生成 .config
+echo "📦 安装最小依赖：luci-base"
+./scripts/feeds install -p luci luci-base
+
+# 如果你的主题 Makefile 依赖其他库，也加进来
+# 示例：DEPENDS:=+luci-lib-ipkg
+# 则需要：
+# ./scripts/feeds install -p luci luci-lib-ipkg
+
 make defconfig
 
 cd - > /dev/null
 
-echo "✅ LuCI 依赖已安装"
+echo "✅ 最小 LuCI 依赖已安装"
 
 # -------------------------------
 # Step 5: 编译主题
