@@ -30,7 +30,7 @@ jobs:
         run: |
           chmod +x $GITHUB_WORKSPACE/build.sh
           # 把架构变量传进去，脚本里用 TARGET_MAP 自动匹配
-          ARCH=${{ matrix.arch }} $GITHUB_WORKSPACE/build.sh
+          ARCH=${{ matrix.arch }} $GITHUB_WORKSPACE/build_auto.sh
 
       # 4. 上传产物（直接单文件 ipk）
       - name: 上传 ipk
