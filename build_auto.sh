@@ -52,12 +52,13 @@ make package/luci-theme-kucat/compile V=s
 # -------------------------------
 # Step 5: 查找生成的 .ipk
 # -------------------------------
-IPK_SRC=$(find bin/packages -name "luci-theme-kucat_${PKG_VERSION}*.ipk" | head -n1)
-if [ -z "$IPK_SRC" ]; then
-  echo "❌ 错误：未生成 .ipk 文件！" >&2
+IPK_ABS_SRC="$SDK_DIR/bin/packages/x86_64/base/luci-theme-kucat_${PKG_VERSION}_all.ipk"
+
+if [ ! -f "$IPK_ABS_SRC" ]; then
+  echo "❌ 文件不存在: $IPK_ABS_SRC"
+  find "$SDK_DIR/bin/packages" -name "*.ipk"  # 调试：列出所有包
   exit 1
 fi
-echo "✅ 找到 IPK: $IPK_SRC"
 
 # -------------------------------
 # Step 6: 下载未压缩 CSS
