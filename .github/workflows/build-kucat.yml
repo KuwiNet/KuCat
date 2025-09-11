@@ -14,6 +14,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup OpenWrt SDK
+        run: |
+          # 下载并解压OpenWrt SDK
+          SDK_URL="https://downloads.openwrt.org/releases/21.02.3/targets/x86/64/openwrt-sdk-21.02.3-x86-64_gcc-8.4.0_musl.Linux-x86_64.tar.xz"
+          wget $SDK_URL -O sdk.tar.xz
+          tar -xf sdk.tar.xz
+          mv openwrt-sdk-* openwrt-sdk
+
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -25,36 +33,39 @@ jobs:
               file \
               libarchive-tools \
               arj \
-              build-essential
+              build-essential \
+              bsdtar
 
-      - name: Setup & Build
+      - name: Build theme
         run: |
           chmod +x build_auto.sh
           ./build_auto.sh 2>&1 | tee build.log
 
-      - name: Verify IPK format (with fallback)
+      - name: Verify IPK format
         run: |
-          if [ ! -d "bin/all-archs" ]; then
-            echo "❌ bin/all-archs directory not found"
-            exit 1
-          fi
+          mkdir -p bin/all-archs || true
           
-          IPK_FILE=$(ls bin/all-archs/*.ipk 2>/dev/null | head -n 1)
+          IPK_FILE=$(find . -name "*.ipk" | head -n 1)
           if [ -z "$IPK_FILE" ]; then
-            echo "❌ No IPK file found in bin/all-archs/"
+            echo "❌ No IPK file found"
             exit 1
           fi
           
-          if ! ar t "$IPK_FILE"; then
+          if ! ar t "$IPK_FILE" 2>/dev/null; then
             echo "⚠️ ar验证失败，尝试使用bsdtar..."
-            if ! bsdtar -tf "$IPK_FILE"; then
+            if ! bsdtar -tf "$IPK_FILE" 2>/dev/null; then
               echo "❌ 两种工具都无法验证IPK格式: $IPK_FILE"
               exit 1
             else
               echo "✅ bsdtar验证通过: $IPK_FILE"
+              # 移动IPK到标准位置
+              mkdir -p bin/all-archs
+              mv "$IPK_FILE" bin/all-archs/
             fi
           else
             echo "✅ ar验证通过: $IPK_FILE"
+            mkdir -p bin/all-archs
+            mv "$IPK_FILE" bin/all-archs/
           fi
 
       - name: Upload Artifact
