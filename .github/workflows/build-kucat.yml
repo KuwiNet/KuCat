@@ -27,8 +27,7 @@ jobs:
               file \
               libarchive-tools \
               arj \
-              build-essential \
-              bsdtar
+              build-essential
 
       - name: Setup & Build
         run: |
