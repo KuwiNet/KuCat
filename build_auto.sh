@@ -1,22 +1,21 @@
 #!/bin/bash
 set -e
 
-echo "🚀 Starting build process..."
+echo "🚀 Starting LuCI Theme Kucat Build Process..."
 
 # -------------------------------
 # Step 1: 获取版本号
 # -------------------------------
-get_pkg_version() {
+get_version() {
   local makefile="luci-theme-kucat/Makefile"
   if [ ! -f "$makefile" ]; then
     echo "❌ Error: $makefile not found!" >&2
     exit 1
   fi
-  # 支持 PKG_VERSION:= 或 PKG_VERSION =
   awk -F'[ =]+' '/^PKG_VERSION:/ {print $2; exit}' "$makefile" | xargs
 }
 
-PKG_VERSION=$(get_pkg_version)
+PKG_VERSION=$(get_version)
 BUILD_DATE="r$(date +%Y%m%d)"
 FULL_VERSION="${PKG_VERSION}-${BUILD_DATE}"
 echo "📦 PKG_VERSION: $PKG_VERSION"
@@ -24,85 +23,117 @@ echo "📅 Build Date:  $BUILD_DATE"
 echo "✅ Full Version: $FULL_VERSION"
 
 # -------------------------------
-# Step 2: 模拟编译（实际应替换为 SDK 构建）
+# Step 2: 配置 SDK 和目录
 # -------------------------------
-# 🔁 实际使用时，请替换为真实的 SDK 编译命令
-# 示例：
-# cd sdk-x86_64 && make package/luci-theme-kucat/compile V=s && cd ..
+SDK_URL="https://downloads.openwrt.org/releases/23.05.2/targets/x86/64/openwrt-sdk-23.05.2-x86-64_gcc-12.3.0_musl.Linux-x86_64.tar.xz"
+SDK_DIR="openwrt-sdk-x86_64"
+OUTPUT_DIR="bin/all-archs"
+CSS_DIR="temp_css"
+TEMP_DIR="temp_ipk"
 
-# 这里我们模拟生成 .ipk 文件（仅用于演示）
-# 你可以删除这部分，换成真实构建逻辑
-
-mkdir -p sdk-x86_64/bin/packages/all/luci
-mkdir -p sdk-rockchip/bin/packages/aarch64_cortex-a53/base
-mkdir -p sdk-mediatek/bin/packages/aarch64_cortex-a53/base
-
-# 创建空的 .ipk 文件作为占位符（真实情况是编译生成）
-touch "sdk-x86_64/bin/packages/all/luci/luci-theme-kucat_${FULL_VERSION}_all.ipk"
-touch "sdk-rockchip/bin/packages/aarch64_cortex-a53/base/luci-theme-kucat_${FULL_VERSION}_all.ipk"
-touch "sdk-mediatek/bin/packages/aarch64_cortex-a53/base/luci-theme-kucat_${FULL_VERSION}_all.ipk"
-
-echo "✅ Simulated build completed (replace with real SDK build)"
+mkdir -p "$OUTPUT_DIR" "$CSS_DIR" "$TEMP_DIR"
 
 # -------------------------------
-# Step 3: 下载未压缩的 CSS 文件
+# Step 3: 下载并解压 SDK
+# -------------------------------
+if [ ! -d "$SDK_DIR" ]; then
+  echo "📥 Downloading OpenWrt SDK..."
+  wget -qO- "$SDK_URL" | tar -xJ
+  mv openwrt-sdk-*-* "$SDK_DIR" || true
+  if [ ! -d "$SDK_DIR" ]; then
+    echo "❌ Failed to extract SDK" >&2
+    exit 1
+  fi
+fi
+
+# -------------------------------
+# Step 4: 复制主题并准备编译
+# -------------------------------
+echo "📁 Copying luci-theme-kucat into SDK..."
+cp -r luci-theme-kucat "$SDK_DIR/package/"
+
+cd "$SDK_DIR"
+
+# 更新 feeds
+echo "🔄 Updating feeds..."
+./scripts/feeds update -a
+./scripts/feeds install -a
+
+# 构建
+echo "⚙️ Compiling luci-theme-kucat..."
+make defconfig
+make package/luci-theme-kucat/compile V=s
+
+# 返回根目录
+cd ..
+
+# -------------------------------
+# Step 5: 查找生成的 .ipk
+# -------------------------------
+IPK_SRC=$(find "$SDK_DIR/bin/packages" -path '*/luci-theme-kucat_${PKG_VERSION}*.ipk' | head -n1)
+if [ -z "$IPK_SRC" ]; then
+  echo "❌ Error: No .ipk file generated in bin/packages/" >&2
+  find "$SDK_DIR/bin/packages" -name "*.ipk" || true
+  exit 1
+fi
+echo "✅ Found compiled IPK: $IPK_SRC"
+
+# -------------------------------
+# Step 6: 下载未压缩的 CSS 文件
 # -------------------------------
 echo "🎨 Downloading unminified CSS files..."
-mkdir -p temp_css
 REPO_BASE="https://raw.githubusercontent.com/KuwiNet/KuCat/js/luci-theme-kucat/htdocs/luci-static/kucat/css"
-curl -fsSL "$REPO_BASE/theme.css" -o temp_css/theme.css
-curl -fsSL "$REPO_BASE/style.css" -o temp_css/style.css
+
+curl -fsSL "$REPO_BASE/theme.css" -o "$CSS_DIR/theme.css"
+curl -fsSL "$REPO_BASE/style.css" -o "$CSS_DIR/style.css"
+
+echo "📄 Downloaded CSS files:"
+ls -lh "$CSS_DIR/"
 
 # -------------------------------
-# Step 4: 替换 .ipk 中的 CSS 文件（解包 → 替换 → 重新打包）
+# Step 7: 解包 -> 替换 CSS -> 重新打包
 # -------------------------------
-REPACK_IPK() {
+repack_ipk() {
   local src_ipk="$1"
-  local arch="$2"
-  local output_dir="bin/all-archs"
+  local output_ipk="$2"
 
-  if [ ! -f "$src_ipk" ]; then
-    echo "⚠️  Skipping: $src_ipk not found"
-    return 0
-  fi
-
-  echo "🔧 Repacking for $arch: $src_ipk"
+  echo "🔧 Repacking: $src_ipk -> $output_ipk"
 
   # 创建临时目录
-  local tmpdir=$(mktemp -d)
+  local tmpdir=$(mktemp -d -p "$TEMP_DIR" 2>/dev/null || mktemp -d)
   cd "$tmpdir"
 
-  # 解包 .ipk
+  # 解包 .ipk (ar 格式)
   ar x "$src_ipk"
   tar -xzf data.tar.gz
   tar -xzf control.tar.gz
 
   # 替换 CSS
   mkdir -p htdocs/luci-static/kucat/css
-  cp ../../temp_css/*.css htdocs/luci-static/kucat/css/
+  cp "$CSS_DIR"/*.css htdocs/luci-static/kucat/css/
 
   # 重新打包 data.tar.gz
   tar -czf data.tar.gz htdocs --owner=0 --group=0
 
   # 重新打包 .ipk
-  mkdir -p "$output_dir"
-  ar r "$output_dir/luci-theme-kucat_${FULL_VERSION}_${arch}.ipk" debian-binary control.tar.gz data.tar.gz
+  ar r "$output_ipk" debian-binary control.tar.gz data.tar.gz
 
   cd - > /dev/null
   rm -rf "$tmpdir"
-  echo "✅ Built: $output_dir/luci-theme-kucat_${FULL_VERSION}_${arch}.ipk"
+  echo "✅ Repacked: $output_ipk"
 }
 
 # 执行重打包
-REPACK_IPK "sdk-x86_64/bin/packages/all/luci/luci-theme-kucat_${FULL_VERSION}_all.ipk" "x86_64"
-REPACK_IPK "sdk-rockchip/bin/packages/aarch64_cortex-a53/base/luci-theme-kucat_${FULL_VERSION}_all.ipk" "rockchip"
-REPACK_IPK "sdk-mediatek/bin/packages/aarch64_cortex-a53/base/luci-theme-kucat_${FULL_VERSION}_all.ipk" "mediatek"
+FINAL_IPK="$OUTPUT_DIR/luci-theme-kucat_${FULL_VERSION}_x86_64.ipk"
+repack_ipk "$IPK_SRC" "$FINAL_IPK"
 
-# 可选：生成一个通用 all 架构包
-cp "bin/all-archs/luci-theme-kucat_${FULL_VERSION}_x86_64.ipk" "bin/all-archs/luci-theme-kucat_${FULL_VERSION}_all.ipk" 2>/dev/null || true
+# 可选：创建通用 all 包
+cp "$FINAL_IPK" "$OUTPUT_DIR/luci-theme-kucat_${FULL_VERSION}_all.ipk" 2>/dev/null || true
 
 # -------------------------------
-# Step 5: 显示结果
+# Step 8: 显示结果
 # -------------------------------
-echo "🎉 Build complete! Generated IPKs:"
-ls -lh bin/all-archs/*.ipk
+echo "🎉 Build Complete! Artifacts:"
+ls -lh "$OUTPUT_DIR/"
+
+echo "💡 You can now upload these files or create a release."
