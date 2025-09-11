@@ -13,9 +13,24 @@ OUTPUT_DIR="$SDK_DIR/bin/packages/x86_64/base"
 # 创建必要目录
 mkdir -p "$IPKG_DIR/CONTROL"
 mkdir -p "$OUTPUT_DIR"
+mkdir -p "bin/all-archs"
 
-# 复制主题文件
-cp -pR "$SDK_DIR/build_dir/target-x86_64_musl/$THEME_NAME/root/*" "$IPKG_DIR/"
+# 检查并复制主题文件
+if [ -d "$BUILD_DIR/root" ]; then
+    cp -pR "$BUILD_DIR/root/"* "$IPKG_DIR/" || {
+        echo "⚠️ 复制主题文件失败，尝试从源码目录复制..."
+        cp -pR "luci-theme-kucat/root/"* "$IPKG_DIR/" || {
+            echo "❌ 无法复制主题文件"
+            exit 1
+        }
+    }
+else
+    echo "⚠️ $BUILD_DIR/root 目录不存在，尝试从源码目录复制"
+    cp -pR "luci-theme-kucat/root/"* "$IPKG_DIR/" || {
+        echo "❌ 无法复制主题文件"
+        exit 1
+    }
+fi
 
 # 清理版本控制文件
 find "$IPKG_DIR" -name 'CVS' -o -name '.svn' -o -name '.#*' -o -name '*~' | xargs -r rm -rf
@@ -71,6 +86,9 @@ fi
 
 echo "✅ IPK built successfully: $IPK_FILE"
 
-# 创建all-archs目录并复制IPK文件
-mkdir -p "bin/all-archs"
-cp "$IPK_FILE" "bin/all-archs/"
+# 复制IPK文件到all-archs目录
+cp "$IPK_FILE" "bin/all-archs/" || {
+    echo "⚠️ 无法复制IPK到bin/all-archs，尝试创建目录"
+    mkdir -p "bin/all-archs"
+    cp "$IPK_FILE" "bin/all-archs/"
+}
