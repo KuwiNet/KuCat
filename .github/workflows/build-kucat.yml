@@ -18,7 +18,7 @@ jobs:
         run: |
           chmod +x build_auto.sh
           sudo apt-get update
-          sudo apt-get install -y wget binutils curl coreutils
+          sudo apt-get install -y wget binutils curl coreutils file
           ./build_auto.sh
 
       - name: Upload Artifact
