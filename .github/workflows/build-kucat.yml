@@ -1,13 +1,21 @@
-name: Build KuCat Universal Theme & Release
+name: Auto Build KuCat on Changes
 
+# 触发条件：修改主题文件或编译脚本时自动运行
 on:
   push:
-    tags:
-      - 'v*'
-  workflow_dispatch:
+    branches: [ js ]  # 监测js分支的推送
+    paths:
+      - 'luci-theme-kucat/**'  # 主题文件修改时触发
+      - 'build_auto.sh'       # 编译脚本修改时触发
+  pull_request:
+    branches: [ js ]
+    paths:
+      - 'luci-theme-kucat/**'
+      - 'build_auto.sh'
+  workflow_dispatch:  # 保留手动触发选项
 
 jobs:
-  build-universal:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -15,69 +23,38 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Prepare environment
+      - name: Make build script executable
+        run: chmod +x build_auto.sh
+
+      - name: Install system dependencies
         run: |
-          # 安装依赖工具
           sudo apt update -y
-          sudo apt install -y build-essential libncurses5-dev libncursesw5-dev \
-            zlib1g-dev gawk git gettext libssl-dev xsltproc wget unzip python3 libarchive-tools
-          
-          # 赋予脚本执行权限
-          chmod +x build_auto.sh
+          sudo apt install -y \
+            build-essential libncurses5-dev libncursesw5-dev \
+            zlib1g-dev gawk git gettext libssl-dev xsltproc \
+            wget unzip python3 libarchive-tools
 
-      - name: Build universal IPK (all architecture)
-        run: |
-          # 执行编译脚本，生成通用all架构包
-          ./build_auto.sh
+      - name: Run build script
+        run: ./build_auto.sh  # 直接调用编译脚本
 
-      - name: Verify and rename IPK
-        run: |
-          # 从环境变量获取编译产物路径
-          IPK_PATH=${{ env.IPK_PATH }}
-          
-          # 验证文件存在
-          if [ ! -f "$IPK_PATH" ]; then
-            echo "❌ 错误：未找到编译生成的IPK文件"
-            exit 1
-          fi
-          
-          # 重命名为通用格式（含版本号和all标识）
-          VERSION_TAG=${{ github.ref_name }}
-          UNIVERSAL_IPK="luci-theme-kucat_${VERSION_TAG}_all.ipk"
-          cp "$IPK_PATH" "$UNIVERSAL_IPK"
-          
-          # 输出最终文件信息
-          echo "✅ 通用IPK生成完成：$UNIVERSAL_IPK"
-          ls -lh "$UNIVERSAL_IPK"
-          
-          # 导出重命名后的路径
-          echo "UNIVERSAL_IPK=$UNIVERSAL_IPK" >> $GITHUB_ENV
+      - name: Upload all.ipk artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: luci-theme-kucat-all
+          path: ${{ env.IPK_PATH }}  # 从脚本导出的IPK路径
 
-      - name: Create release assets
-        run: |
-          # 创建发布资产目录
-          mkdir -p release_assets
-          # 复制通用IPK
-          cp ${{ env.UNIVERSAL_IPK }} release_assets/
-          # 生成校验和
-          cd release_assets && sha256sum *.ipk > SHA256SUMS.txt && cd ..
-
-      - name: Create GitHub Release
+      # 仅在推送到js分支时创建预发布（可选）
+      - name: Create pre-release for js branch
+        if: github.event_name == 'push' && github.ref == 'refs/heads/js'
         uses: softprops/action-gh-release@v2
         with:
-          name: KuCat Theme ${{ github.ref_name }}
+          tag_name: pre-release-${{ github.sha }}  # 用commit哈希作为临时标签
+          name: KuCat Pre-release (js branch)
           body: |
-            ## KuCat Theme ${{ github.ref_name }}
-            通用架构版本（all），适用于所有OpenWrt设备
-            
-            ### 安装方法
-            1. 下载 luci-theme-kucat_${{ github.ref_name }}_all.ipk
-            2. 通过SSH执行：`opkg install luci-theme-kucat_${{ github.ref_name }}_all.ipk`
-            3. 刷新LuCI页面即可生效
-          files: |
-            release_assets/*.ipk
-            release_assets/SHA256SUMS.txt
-          generate_release_notes: true
+            自动构建于 ${{ github.sha }}
+            包含最新主题文件和脚本修改
+          files: ${{ env.IPK_PATH }}
+          prerelease: true  # 标记为预发布
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     
