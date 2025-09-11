@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "? 构建 LuCI 主题 Kucat (all 架构专用版)"
+echo "📦 构建 LuCI 主题 Kucat"
 
 # -------------------------------
 # Step 1: 提取版本号
@@ -20,14 +20,14 @@ fi
 BUILD_DATE="r$(date +%Y%m%d)"
 FULL_VERSION="${PKG_VERSION}-${BUILD_DATE}"
 
-echo "? 版本: $PKG_VERSION"
-echo "? 构建日期: $BUILD_DATE"
+echo "🔖 版本: $PKG_VERSION"
+echo "📅 构建日期: $BUILD_DATE"
 echo "✅ 完整版本: $FULL_VERSION"
 
 # -------------------------------
 # Step 2: 配置路径
 # -------------------------------
-SDK_URL="https://downloads.openwrt.org/releases/23.05.2/targets/x86/64/openwrt-sdk-23.05.2-x86-64_gcc-12.3.0_musl.Linux-x86_64.tar.xz"
+SDK_URL="https://downloads.openwrt.org/releases/23.05.2/targets/x86/64/openwrt-sdk-23.05.2-x86-64_gcc-12.3.0_musl.Linux-x86_64.tar.xz "
 SDK_DIR="openwrt-sdk"
 # 直接使用SDK的输出目录作为最终输出目录
 OUTPUT_DIR="$SDK_DIR/bin/packages/x86_64/base"
@@ -36,7 +36,7 @@ OUTPUT_DIR="$SDK_DIR/bin/packages/x86_64/base"
 # Step 3: 下载 SDK
 # -------------------------------
 if [ ! -d "$SDK_DIR" ]; then
-  echo "? 下载 OpenWrt SDK..."
+  echo "⬇️ 下载 OpenWrt SDK..."
   wget -qO- "$SDK_URL" | tar -xJ
   mv openwrt-sdk-* "$SDK_DIR" || true
 fi
@@ -49,17 +49,17 @@ fi
 # -------------------------------
 # Step 4: 复制主题 + 安装最小依赖
 # -------------------------------
-echo "? 复制主题到 SDK..."
+echo "📂 复制主题到 SDK..."
 rm -rf "$SDK_DIR/package/luci-theme-kucat" 2>/dev/null || true
 cp -r luci-theme-kucat "$SDK_DIR/package/"
 
 cd "$SDK_DIR"
 
-echo "? 更新 feeds..."
+echo "🔄 更新 feeds..."
 ./scripts/feeds update -i
 ./scripts/feeds update luci
 
-echo "? 安装最小依赖: luci-base"
+echo "📦 安装最小依赖: luci-base"
 ./scripts/feeds install -p luci luci-base
 
 make defconfig
@@ -93,7 +93,7 @@ fi
 echo "✅ 找到编译生成的 IPK: $IPK_REAL_SRC"
 
 # 验证 IPK 文件格式有效性
-echo "? 验证 IPK 文件格式..."
+echo "🔍 验证 IPK 文件格式..."
 if ! ar t "$IPK_REAL_SRC" >/dev/null 2>&1; then
   echo "⚠️ ar 工具验证失败，尝试使用 bsdtar 二次验证..."
   if command -v bsdtar >/dev/null; then
@@ -128,7 +128,7 @@ echo "IPK_PATH=$IPK_REAL_SRC" >> $GITHUB_ENV  # 导出IPK路径方便后续处�
 # 清理函数（可选）
 # -------------------------------
 cleanup() {
-  echo -e "\n? 清理临时文件..."
+  echo -e "\n🧹 清理临时文件..."
   # 可选：清理SDK编译缓存
   # make -C "$SDK_DIR" package/luci-theme-kucat/clean >/dev/null 2>&1
   echo "✅ 清理完成"
