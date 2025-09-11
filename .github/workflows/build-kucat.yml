@@ -24,7 +24,6 @@ jobs:
               coreutils \
               file \
               libarchive-tools \
-              bsdtar \
               arj \
               build-essential
 
