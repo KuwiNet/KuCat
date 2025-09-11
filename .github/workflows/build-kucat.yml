@@ -22,7 +22,7 @@ jobs:
           ./build_auto.sh
 
       - name: Upload Artifact
-        uses: actions/upload-artifact@v4  # ✅ 修复：v3 → v4
+        uses: actions/upload-artifact@v4
         with:
           path: bin/all-archs/*.ipk
           if-no-files-found: error
