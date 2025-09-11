@@ -13,20 +13,21 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            wget \
-            binutils \
-            curl \
-            coreutils \
-            file \
-            bsdtar \
-            arj \
-            build-essential \
-            libarchive-tools
+              wget \
+              binutils \
+              curl \
+              coreutils \
+              file \
+              libarchive-tools \
+              arj \
+              build-essential
 
       - name: Setup & Build
         run: |
@@ -35,13 +36,22 @@ jobs:
 
       - name: Verify IPK format
         run: |
-          if [ -f "bin/all-archs"/*.ipk ]; then
-            ar t "bin/all-archs"/*.ipk || exit 1
-            echo "✅ IPK format verified"
-          else
-            echo "❌ No IPK file found"
+          if [ ! -d "bin/all-archs" ]; then
+            echo "❌ bin/all-archs directory not found"
             exit 1
           fi
+          
+          IPK_FILE=$(ls bin/all-archs/*.ipk 2>/dev/null | head -n 1)
+          if [ -z "$IPK_FILE" ]; then
+            echo "❌ No IPK file found in bin/all-archs/"
+            exit 1
+          fi
+          
+          if ! ar t "$IPK_FILE"; then
+            echo "❌ Invalid IPK format: $IPK_FILE"
+            exit 1
+          fi
+          echo "✅ IPK format verified: $IPK_FILE"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
@@ -54,8 +64,11 @@ jobs:
         if: github.ref == 'refs/heads/js'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ env.RELEASE_TAG }}
-          name: Release ${{ env.RELEASE_TAG }}
+          tag_name: luci-theme-kucat-${{ github.sha }}
+          name: Release ${{ github.sha }}
+          body: "Automated build of LuCI Kucat theme"
+          draft: false
+          prerelease: false
           generate_release_notes: true
           files: bin/all-archs/*.ipk
         env:
