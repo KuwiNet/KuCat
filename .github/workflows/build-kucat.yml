@@ -1,41 +1,73 @@
-name: 编译 OpenWrt KuCat 主题
+name: Build and Release .ipk
 
 on:
   push:
-    branches: [ main, master ]   # 任何推送都触发
-  workflow_dispatch:             # 手动按钮也允许
+    paths:
+      - 'luci-theme-kucat/Makefile'
+    branches:
+      - js
 
 jobs:
-  build:
+  build-and-release:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        arch: [x86_64, mediatek, rockchip]   # 你想编几个架构就写几个
     steps:
-      # 1. 拉代码
-      - name: 检出仓库
+      - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
 
-      # 2. 装系统依赖（只装一次）
-      - name: 安装依赖
+      - name: Extract PKG_VERSION from Makefile
+        id: get_version
+        run: |
+          # 提取 luci-theme-kucat/Makefile 中的 PKG_VERSION
+          VERSION=$(grep '^PKG_VERSION:' luci-theme-kucat/Makefile | head -n1 | cut -d'=' -f2 | xargs)
+          echo "Extracted version: $VERSION"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Set up build environment
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential ccache ecj fastjar file g++ gawk \
-            gettext git java-propose-classpath libelf-dev libncurses5-dev \
-            libncursesw5-dev libssl-dev python3 unzip wget python3-setuptools \
-            python3-dev rsync subversion swig time xsltproc zlib1g-dev zstd curl
+          sudo apt-get install -y build-essential devscripts debhelper
 
-      # 3. 跑脚本（矩阵并行，每个架构一个 Job）
-      - name: 编译 ${{ matrix.arch }}
+      - name: Copy unminified CSS files
         run: |
-          chmod +x $GITHUB_WORKSPACE/build_auto.sh
-          # 把架构变量传进去，脚本里用 TARGET_MAP 自动匹配
-          ARCH=${{ matrix.arch }} $GITHUB_WORKSPACE/build_auto.sh
+          mkdir -p luci-theme-kucat/htdocs/luci-static/kucat/css
+          # 直接从 js 分支下载 CSS 文件（不压缩）
+          curl -fsSL https://raw.githubusercontent.com/KuwiNet/KuCat/js/luci-theme-kucat/htdocs/luci-static/kucat/css/cascade.css > luci-theme-kucat/htdocs/luci-static/kucat/css/cascade.css
+          curl -fsSL https://raw.githubusercontent.com/KuwiNet/KuCat/js/luci-theme-kucat/htdocs/luci-static/kucat/css/style.css > luci-theme-kucat/htdocs/luci-static/kucat/css/style.css
+          # 可根据需要添加更多 CSS 文件
 
-      # 4. 上传产物（直接单文件 ipk）
-      - name: 上传 ipk
-        uses: actions/upload-artifact@v4
+      - name: Build .ipk package
+        working-directory: ./luci-theme-kucat
+        run: |
+          # 使用 make 或 opkg 打包工具构建 ipk
+          # 假设你使用的是 OpenWrt 的 Makefile 结构，可直接调用 make
+          # 如果没有依赖问题，可以模拟打包过程
+          tar -czf data.tar.gz htdocs --owner=0 --group=0
+          echo "2.0" > debian-binary
+          touch control
+          echo "Package: luci-theme-kucat
+Version: ${{ steps.get_version.outputs.version }}
+Section: luci
+Category: Themes
+Architecture: all
+Maintainer: KuwiNet
+Description: A beautiful LuCI theme
+" > control
+          tar -czf control.tar.gz control --owner=0 --group=0
+          # 合并成 .ipk
+          ar r ../luci-theme-kucat_${{ steps.get_version.outputs.version }}_all.ipk debian-binary control.tar.gz data.tar.gz
+
+      - name: Create Release and Upload .ipk
+        uses: softprops/action-gh-release@v2
         with:
-          name: kucat-${{ matrix.arch }}.ipk   # 下载时文件名就是 xxx.ipk
-          path: ~/kucat-auto-*/bin/all-archs/luci-theme-kucat-*.ipk
-          retention-days: 90
+          tag_name: ${{ steps.get_version.outputs.tag }}
+          name: Release ${{ steps.get_version.outputs.tag }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            *.ipk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
