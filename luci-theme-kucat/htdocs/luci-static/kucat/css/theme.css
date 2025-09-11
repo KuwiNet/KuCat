@@ -6,3 +6,12 @@
                  env(safe-area-inset-bottom) env(safe-area-inset-left);
     }
 }
+
+@font-face {
+  font-family: "AlimamaFangYuanTi";
+  src: url('../fonts/AlimamaFangYuanTiVF-Thin.ttf') format('truetype'),
+    url('../fonts/AlimamaFangYuanTiVF-Thin.woff') format('woff'),
+    url('../fonts/AlimamaFangYuanTiVF-Thin.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+}
