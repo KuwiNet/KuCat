@@ -150,39 +150,46 @@ repack_all_ipk() {
   local tmpdir=$(mktemp -d --tmpdir="$TEMP_DIR" 2>/dev/null || mktemp -d)
 
   echo "? 解包原始 IPK: $src_ipk"
-  cd "$tmpdir" || exit 1
+  cd "$tmpdir"
 
-  # 尝试使用bsdtar解包
+  # 尝试多种解包方式
   if command -v bsdtar >/dev/null; then
     echo "ℹ️ 使用bsdtar解包..."
-    bsdtar -xf "$src_ipk" || { echo "❌ bsdtar解包失败"; exit 1; }
+    if ! bsdtar -xf "$src_ipk"; then
+      echo "❌ bsdtar解包失败，尝试ar..."
+      ar x "$src_ipk" || { echo "❌ 解包失败：文件可能损坏"; exit 1; }
+    fi
   else
-    # 回退到ar解包
-    ar x "$src_ipk" || { echo "❌ ar解包失败"; exit 1; }
+    echo "ℹ️ 使用ar解包..."
+    ar x "$src_ipk" || { echo "❌ ar解包失败：文件可能损坏"; exit 1; }
   fi
 
-  # 解压内部文件
-  tar -xzf data.tar.gz || { echo "❌ 解包data.tar.gz失败"; exit 1; }
-  tar -xzf control.tar.gz || { echo "❌ 解包control.tar.gz失败"; exit 1; }
+  # 验证解包结果
+  if [ ! -f "data.tar.gz" ] || [ ! -f "control.tar.gz" ]; then
+    echo "❌ 解包后缺少必要文件"
+    echo "? 解包目录内容:"
+    ls -la
+    exit 1
+  fi
 
-  # 替换CSS文件
+  # 解压数据
+  tar -xzf data.tar.gz || { echo "❌ 解压data.tar.gz失败"; exit 1; }
+  tar -xzf control.tar.gz || { echo "❌ 解压control.tar.gz失败"; exit 1; }
+
+  # 替换CSS（使用绝对路径）
   mkdir -p htdocs/luci-static/kucat/css
-  cp "$CSS_DIR"/*.css htdocs/luci-static/kucat/css/
-  echo "✅ 已替换CSS文件"
+  cp "$CSS_DIR/theme.css" "$CSS_DIR/style.css" htdocs/luci-static/kucat/css/
 
-  # 重新打包为符合规范的IPK
-  echo "2.0" > debian-binary
-  gzip -9nc control.tar > control.tar.gz || exit 1
-  gzip -9nc data.tar > data.tar.gz || exit 1
-  
-  # 使用ar创建标准格式的IPK
-  ar cr "$dst_ipk" \
-    debian-binary \
-    control.tar.gz \
-    data.tar.gz 2>/dev/null || {
-      echo "❌ ar打包失败" >&2
-      exit 1
-    }
+  # 重新打包
+  echo "? 重新打包..."
+  tar -czf data.tar.gz htdocs --owner=0 --group=0
+  ar r "$dst_ipk" debian-binary control.tar.gz data.tar.gz
+
+  # 验证新包
+  if [ ! -f "$dst_ipk" ]; then
+    echo "❌ 重新打包失败"
+    exit 1
+  fi
 
   cd - > /dev/null
   rm -rf "$tmpdir"
