@@ -1,80 +1,80 @@
-name: Build & Release KuCat Theme
+name: Build LuCI Theme
 
-# 触发条件：修改主题/脚本/工作流时自动运行，或手动触发
 on:
   push:
-    branches: [ js ]  # 仅监测 js 分支
+    branches: [ js ]
     paths:
-      - 'luci-theme-kucat/**'          # 主题文件修改触发
-      - 'build_auto.sh'                # 编译脚本修改触发
-      - '.github/workflows/build_kucat.yml'  # 工作流配置修改触发
-  workflow_dispatch:  # 允许手动触发（测试用）
+      - 'luci-theme-kucat/**'
+      - 'build_auto.sh'
 
 jobs:
-  # 编译任务：生成 all 架构 IPK
   build:
-    runs-on: ubuntu-latest  # 使用 Ubuntu 环境（兼容性最佳）
+    runs-on: ubuntu-latest
     steps:
-      # 步骤1：拉取代码（确保完整获取主题目录）
-      - name: Checkout Code
+      - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 1  # 仅拉取最新代码，加速构建
 
-      # 步骤2：安装系统依赖（SDK 编译所需工具）
-      - name: Install System Dependencies
+      - name: Install dependencies
         run: |
-          sudo apt update -y
-          sudo apt install -y \
-            build-essential libncurses5-dev libncursesw5-dev \
-            zlib1g-dev gawk git gettext libssl-dev xsltproc \
-            wget unzip python3 libarchive-tools  # libarchive-tools 含 bsdtar（IPK 验证）
+          sudo apt-get update
+          sudo apt-get install -y \
+              wget \
+              binutils \
+              curl \
+              coreutils \
+              file \
+              libarchive-tools \
+              bsdtar \
+              arj \
+              build-essential
 
-      # 步骤3：赋予脚本执行权限
-      - name: Make Script Executable
-        run: chmod +x build_auto.sh
+      - name: Setup & Build
+        run: |
+          chmod +x build_auto.sh
+          ./build_auto.sh 2>&1 | tee build.log
 
-      # 步骤4：执行编译脚本（核心逻辑全部在脚本中）
-      - name: Run Build Script
-        run: ./build_auto.sh
+      - name: Verify IPK format (with fallback)
+        run: |
+          if [ ! -d "bin/all-archs" ]; then
+            echo "❌ bin/all-archs directory not found"
+            exit 1
+          fi
+          
+          IPK_FILE=$(ls bin/all-archs/*.ipk 2>/dev/null | head -n 1)
+          if [ -z "$IPK_FILE" ]; then
+            echo "❌ No IPK file found in bin/all-archs/"
+            exit 1
+          fi
+          
+          if ! ar t "$IPK_FILE"; then
+            echo "⚠️ ar验证失败，尝试使用bsdtar..."
+            if ! bsdtar -tf "$IPK_FILE"; then
+              echo "❌ 两种工具都无法验证IPK格式: $IPK_FILE"
+              exit 1
+            else
+              echo "✅ bsdtar验证通过: $IPK_FILE"
+            fi
+          else
+            echo "✅ ar验证通过: $IPK_FILE"
+          fi
 
-      # 步骤5：上传编译产物（IPK + 日志，便于调试）
-      - name: Upload Build Artifacts
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: luci-theme-kucat-${{ env.RELEASE_TAG }}
-          path: |
-            ${{ env.IPK_PATH }}
-            ${{ env.BUILD_LOG }}
-          retention-days: 7  # 产物保留 7 天（可调整）
+          name: luci-theme-kucat
+          path: bin/all-archs/*.ipk
+          if-no-files-found: error
 
-      # 步骤6：自动创建预发布（仅推送 js 分支时）
-      - name: Create GitHub Pre-Release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/js'
+      - name: Create Release
+        if: github.ref == 'refs/heads/js'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ env.RELEASE_TAG }}  # 标签格式：v2.6.8-r20240520
-          name: KuCat Theme v${{ env.RELEASE_TAG }}
-          body: |
-            ## KuCat Theme v${{ env.RELEASE_TAG }}
-            通用 all 架构版，适用于所有 OpenWRT 设备（LuCI 19.07+）
-            
-            ### 📋 基本信息
-            - 作者：KuwiNet
-            - 版本：${{ env.RELEASE_TAG }}
-            - 架构：all（通用）
-            - 依赖：luci-base
-            
-            ### 🛠️ 安装方法
-            1. 下载下方的 IPK 文件
-            2. 通过 SSH 执行：`opkg install luci-theme-kucat_${{ env.RELEASE_TAG }}_all.ipk`
-            3. 刷新 LuCI 页面，在「系统 → 系统 → 语言和界面」中选择「KuCat」
-            
-            ### 📝 日志
-            编译日志：[查看](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
-          files: |
-            ${{ env.IPK_PATH }}
-            ${{ env.BUILD_LOG }}
-          prerelease: true  # 标记为预发布（避免正式版混淆）
+          tag_name: luci-theme-kucat-${{ github.sha }}
+          name: Release ${{ github.sha }}
+          body: "Automated build of LuCI Kucat theme"
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: bin/all-archs/*.ipk
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # GitHub 自动提供的身份令牌
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
