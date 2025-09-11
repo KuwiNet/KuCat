@@ -10,38 +10,43 @@ BUILD_DIR="$SDK_DIR/build_dir/target-x86_64_musl/$THEME_NAME"
 IPKG_DIR="$BUILD_DIR/ipkg-all/$THEME_NAME"
 OUTPUT_DIR="$SDK_DIR/bin/packages/x86_64/base"
 
+# 检查SDK目录结构
+if [ ! -d "$SDK_DIR/scripts" ]; then
+    echo "❌ SDK目录结构不完整，缺少scripts目录"
+    exit 1
+fi
+
 # 创建必要目录
 mkdir -p "$IPKG_DIR/CONTROL"
 mkdir -p "$OUTPUT_DIR"
 mkdir -p "bin/all-archs"
 
 # 检查并复制主题文件
-if [ -d "$BUILD_DIR/root" ]; then
-    cp -pR "$BUILD_DIR/root/"* "$IPKG_DIR/" || {
-        echo "⚠️ 复制主题文件失败，尝试从源码目录复制..."
-        cp -pR "luci-theme-kucat/root/"* "$IPKG_DIR/" || {
-            echo "❌ 无法复制主题文件"
-            exit 1
-        }
-    }
-else
-    echo "⚠️ $BUILD_DIR/root 目录不存在，尝试从源码目录复制"
+if [ -d "luci-theme-kucat/root" ]; then
+    echo "ℹ️ 从源码目录复制主题文件..."
     cp -pR "luci-theme-kucat/root/"* "$IPKG_DIR/" || {
         echo "❌ 无法复制主题文件"
         exit 1
     }
+else
+    echo "❌ 源码目录中缺少root目录"
+    exit 1
 fi
 
 # 清理版本控制文件
 find "$IPKG_DIR" -name 'CVS' -o -name '.svn' -o -name '.#*' -o -name '*~' | xargs -r rm -rf
 
-# 执行strip操作
-export CROSS="x86_64-openwrt-linux-musl-"
-export NM="x86_64-openwrt-linux-musl-nm"
-export STRIP="$SDK_DIR/staging_dir/host/bin/sstrip -z"
-export STRIP_KMOD="$SDK_DIR/scripts/strip-kmod.sh"
-export PATCHELF="$SDK_DIR/staging_dir/host/bin/patchelf"
-"$SDK_DIR/scripts/rstrip.sh" "$IPKG_DIR"
+# 检查并执行strip操作
+if [ -f "$SDK_DIR/scripts/rstrip.sh" ]; then
+    export CROSS="x86_64-openwrt-linux-musl-"
+    export NM="x86_64-openwrt-linux-musl-nm"
+    export STRIP="$SDK_DIR/staging_dir/host/bin/sstrip -z"
+    export STRIP_KMOD="$SDK_DIR/scripts/strip-kmod.sh"
+    export PATCHELF="$SDK_DIR/staging_dir/host/bin/patchelf"
+    "$SDK_DIR/scripts/rstrip.sh" "$IPKG_DIR"
+else
+    echo "⚠️ 缺少rstrip.sh，跳过strip操作"
+fi
 
 # 创建CONTROL文件
 cat > "$IPKG_DIR/CONTROL/control" <<EOF
@@ -54,41 +59,24 @@ Installed-Size: 1
 Description: KuCat Theme for LuCI
 EOF
 
-# 创建postinst和prerm脚本
-cat > "$IPKG_DIR/CONTROL/postinst" <<EOF
-#!/bin/sh
-[ "\${IPKG_NO_SCRIPT}" = "1" ] && exit 0
-[ -s "\${IPKG_INSTROOT}/lib/functions.sh" ] || exit 0
-. \${IPKG_INSTROOT}/lib/functions.sh
-default_postinst \$0 \$@
-EOF
-
-cat > "$IPKG_DIR/CONTROL/prerm" <<EOF
-#!/bin/sh
-[ -s "\${IPKG_INSTROOT}/lib/functions.sh" ] || exit 0
-. \${IPKG_INSTROOT}/lib/functions.sh
-default_prerm \$0 \$@
-EOF
-
-chmod 0755 "$IPKG_DIR/CONTROL/postinst" "$IPKG_DIR/CONTROL/prerm"
-
 # 构建IPK包
-"$SDK_DIR/staging_dir/host/bin/fakeroot" \
-"$SDK_DIR/staging_dir/host/bin/bash" \
-"$SDK_DIR/scripts/ipkg-build" -m "" "$IPKG_DIR" "$OUTPUT_DIR"
-
-# 验证IPK文件
-IPK_FILE=$(ls "$OUTPUT_DIR"/*.ipk | head -n 1)
-if [ ! -f "$IPK_FILE" ]; then
-    echo "❌ IPK file not found"
+if [ -f "$SDK_DIR/scripts/ipkg-build" ]; then
+    "$SDK_DIR/staging_dir/host/bin/fakeroot" \
+    "$SDK_DIR/staging_dir/host/bin/bash" \
+    "$SDK_DIR/scripts/ipkg-build" -m "" "$IPKG_DIR" "$OUTPUT_DIR"
+else
+    echo "❌ 缺少ipkg-build脚本"
     exit 1
 fi
 
-echo "✅ IPK built successfully: $IPK_FILE"
+# 检查IPK文件
+IPK_FILE=$(ls "$OUTPUT_DIR"/*.ipk 2>/dev/null | head -n 1)
+if [ -z "$IPK_FILE" ]; then
+    echo "❌ IPK文件生成失败"
+    exit 1
+fi
 
-# 复制IPK文件到all-archs目录
-cp "$IPK_FILE" "bin/all-archs/" || {
-    echo "⚠️ 无法复制IPK到bin/all-archs，尝试创建目录"
-    mkdir -p "bin/all-archs"
-    cp "$IPK_FILE" "bin/all-archs/"
-}
+# 复制到all-archs目录
+mkdir -p "bin/all-archs"
+cp "$IPK_FILE" "bin/all-archs/"
+echo "✅ IPK构建成功: $IPK_FILE"
