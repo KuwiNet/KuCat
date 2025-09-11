@@ -1,45 +1,24 @@
-name: Build LuCI Theme Kucat
+name: Build LuCI Theme
 
 on:
   push:
+    branches: [ js ]
     paths:
       - 'luci-theme-kucat/**'
       - 'build_auto.sh'
-    branches:
-      - js  # 改为你的分支名
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Extract Version
-        id: version
-        run: |
-          ver=$(awk -F'[ =]+' '/^PKG_VERSION:/ {print $2}' luci-theme-kucat/Makefile | xargs)
-          echo "version=$ver" >> $GITHUB_OUTPUT
-          echo "tag=v$ver" >> $GITHUB_OUTPUT
-
-      - name: Setup
+      - uses: actions/checkout@v4
+      - name: Setup & Build
         run: |
           chmod +x build_auto.sh
           sudo apt-get update
           sudo apt-get install -y wget binutils
-
-      - name: Run Build
-        run: ./build_auto.sh
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
+          ./build_auto.sh
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
         with:
-          tag_name: ${{ steps.version.outputs.tag }}
-          name: Release ${{ steps.version.outputs.tag }}
-          generate_release_notes: true
-          draft: false
-          prerelease: false
-          files: bin/all-archs/*.ipk
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          path: bin/all-archs/*.ipk
