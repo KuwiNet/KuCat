@@ -89,7 +89,7 @@ for arch in "${!TARGET_MAP[@]}"; do
 
   # 检查SDK文件是否已经存在且大小正常
   if [[ -f "$tarfile" ]]; then
-    local file_size=$(stat -c%s "$tarfile")
+    file_size=$(stat -c%s "$tarfile")  # 移除 local 关键字
     if [[ $file_size -gt 1048576 ]]; then
       echo "✅ $arch SDK 已存在且大小正常 ($((file_size/1024/1024))MB)，跳过下载"
       continue
