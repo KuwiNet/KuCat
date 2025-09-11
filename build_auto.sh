@@ -148,68 +148,42 @@ if [ ! -f "$CSS_DIR/theme.css" ] || [ ! -f "$CSS_DIR/style.css" ]; then
 fi
 
 # -------------------------------
-# Step 8: 改进的重打包函数
+# Step 8: 重新打包 (增强版)
 # -------------------------------
-repack_all_ipk() {
-  local src_ipk="$1"
-  local dst_ipk="$2"
-  local tmpdir=$(mktemp -d --tmpdir="$TEMP_DIR" 2>/dev/null || mktemp -d)
+echo "? 重新打包..."
+OUTPUT_DIR="$(pwd)/bin/all-archs"
+mkdir -p "$OUTPUT_DIR"
 
-  # 添加 CSS 目录验证
-  echo "? 验证 CSS 文件路径..."
-  if [ ! -f "$CSS_DIR/theme.css" ] || [ ! -f "$CSS_DIR/style.css" ]; then
-    echo "❌ 错误：CSS 文件缺失于 $CSS_DIR"
-    ls -la "$CSS_DIR" || true
+# 使用绝对路径
+INPUT_IPK="/home/runner/work/KuCat/KuCat/openwrt-sdk/bin/packages/x86_64/base/luci-theme-kucat_2.6.17_all.ipk"
+OUTPUT_IPK="$OUTPUT_DIR/luci-theme-kucat_2.6.17-r20250911_all.ipk"
+
+# 添加文件存在性验证
+if [ ! -f "$INPUT_IPK" ]; then
+  echo "❌ 错误：输入IPK文件不存在: $INPUT_IPK"
+  exit 1
+fi
+
+# 优先尝试使用bsdtar
+if command -v bsdtar >/dev/null 2>&1; then
+  echo "ℹ️ 使用bsdtar重新打包..."
+  bsdtar -czf "$OUTPUT_IPK" -C "$TEMP_DIR" .
+else
+  echo "⚠️ bsdtar不可用，尝试使用ar..."
+  if ! command -v ar >/dev/null 2>&1; then
+    echo "❌ 错误：找不到可用的打包工具(bsdtar/ar)"
     exit 1
   fi
+  ar cr "$OUTPUT_IPK" $(find "$TEMP_DIR" -type f | sort)
+fi
 
-  echo "? 解包原始 IPK: $src_ipk"
-  cd "$tmpdir"
-
-  # 尝试多种解包方式
-  if command -v bsdtar >/dev/null; then
-    echo "ℹ️ 使用bsdtar解包..."
-    if ! bsdtar -xf "$src_ipk"; then
-      echo "❌ bsdtar解包失败，尝试ar..."
-      ar x "$src_ipk" || { echo "❌ 解包失败：文件可能损坏"; exit 1; }
-    fi
-  else
-    echo "ℹ️ 使用ar解包..."
-    ar x "$src_ipk" || { echo "❌ ar解包失败：文件可能损坏"; exit 1; }
-  fi
-
-  # 验证解包结果
-  if [ ! -f "data.tar.gz" ] || [ ! -f "control.tar.gz" ]; then
-    echo "❌ 解包后缺少必要文件"
-    echo "? 解包目录内容:"
-    ls -la
-    exit 1
-  fi
-
-  # 解压数据
-  tar -xzf data.tar.gz || { echo "❌ 解压data.tar.gz失败"; exit 1; }
-  tar -xzf control.tar.gz || { echo "❌ 解压control.tar.gz失败"; exit 1; }
-
-  # 替换CSS（使用绝对路径）
-  mkdir -p htdocs/luci-static/kucat/css
-  cp "$CSS_DIR/theme.css" "$CSS_DIR/style.css" htdocs/luci-static/kucat/css/
-
-  # 重新打包
-  echo "? 重新打包..."
-  tar -czf data.tar.gz htdocs --owner=0 --group=0
-  ar r "$dst_ipk" debian-binary control.tar.gz data.tar.gz
-
-  # 验证新包
-  if [ ! -f "$dst_ipk" ]; then
-    echo "❌ 重新打包失败"
-    exit 1
-  fi
-
-  cd - > /dev/null
-  rm -rf "$tmpdir"
-  echo "✅ 重新打包完成: $dst_ipk"
-}
-
+# 验证输出文件
+if [ -f "$OUTPUT_IPK" ]; then
+  echo "✅ 重新打包完成: $OUTPUT_IPK"
+else
+  echo "❌ 错误：重新打包失败"
+  exit 1
+fi
 # -------------------------------
 # Step 9: 执行重打包
 # -------------------------------
