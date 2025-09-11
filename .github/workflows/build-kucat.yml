@@ -17,19 +17,38 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y wget binutils curl coreutils file bsdtar
+          sudo apt-get install -y \
+            wget \
+            binutils \
+            curl \
+            coreutils \
+            file \
+            bsdtar \
+            arj \
+            build-essential
+
       - name: Setup & Build
         run: |
           chmod +x build_auto.sh
           ./build_auto.sh
 
+      - name: Verify IPK format
+        run: |
+          if [ -f "bin/all-archs"/*.ipk ]; then
+            ar t "bin/all-archs"/*.ipk || exit 1
+            echo "✅ IPK format verified"
+          else
+            echo "❌ No IPK file found"
+            exit 1
+          fi
+
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
+          name: luci-theme-kucat
           path: bin/all-archs/*.ipk
           if-no-files-found: error
 
-      # 可选：发布 Release
       - name: Create Release
         if: github.ref == 'refs/heads/js'
         uses: softprops/action-gh-release@v2
