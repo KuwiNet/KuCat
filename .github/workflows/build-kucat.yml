@@ -1,4 +1,4 @@
-name: Build KuCat Theme (v2.6.8)
+name: Build KuCat Theme
 
 on:
   push:
