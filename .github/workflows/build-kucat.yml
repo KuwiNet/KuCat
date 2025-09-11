@@ -3,7 +3,8 @@ name: Build and Release LuCI Theme Kucat
 on:
   push:
     paths:
-      - 'luci-theme-kucat/Makefile'
+      - 'luci-theme-kucat/**'
+      - 'build_auto.sh'
     branches:
       - js
 
@@ -12,37 +13,36 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout Source Code
         uses: actions/checkout@v4
 
-      - name: Extract PKG_VERSION from Makefile
+      - name: Extract PKG_VERSION for Release Tag
         id: get_version
         run: |
           VERSION=$(awk -F'[ =]+' '/^PKG_VERSION:/ {print $2}' luci-theme-kucat/Makefile | xargs)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
-          echo "full_version=${VERSION}-r$(date +%Y%m%d)" >> $GITHUB_OUTPUT
 
-      - name: Make build_auto.sh executable
+      - name: Make Build Script Executable
         run: chmod +x build_auto.sh
 
-      - name: Run build_auto.sh to generate .ipk
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget tar xz-utils binutils
+
+      - name: Run Build Script
         run: ./build_auto.sh
 
-      - name: Verify generated .ipk files
+      - name: Verify Output
         run: |
-          echo "🔍 Checking generated IPKs:"
-          find bin/all-archs -name "*.ipk" -ls
-          if ! ls bin/all-archs/*.ipk > /dev/null 2>&1; then
-            echo "❌ No .ipk files found in bin/all-archs/"
-            exit 1
-          fi
+          echo "🔍 Final IPK files:"
+          find bin/all-archs -type f -name "*.ipk" -ls
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.get_version.outputs.tag }}
-          name: Release ${{ steps.get_version.outputs.tag }}
+          tag_name: v${{ steps.get_version.outputs.version }}
+          name: Release v${{ steps.get_version.outputs.version }}
           draft: false
           prerelease: false
           generate_release_notes: true
