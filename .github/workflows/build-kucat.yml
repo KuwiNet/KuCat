@@ -1,76 +1,65 @@
-name: Build KuCat Theme & Create Release
+name: Build KuCat Universal Theme & Release
 
 on:
   push:
-    tags:  # 标签推送触发（如 v1.0.0）
+    tags:
       - 'v*'
-  workflow_dispatch:  # 允许手动触发
+  workflow_dispatch:
 
 jobs:
-  build:
+  build-universal:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        # 扩展支持的架构（需与 build_auto.sh 兼容）
-        target: [x86_64, armvirt-64]
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
-      - name: Make build script executable
+      - name: Prepare environment
         run: |
-          # 确保本地编译脚本有执行权限
+          # 安装依赖工具
+          sudo apt update -y
+          sudo apt install -y build-essential libncurses5-dev libncursesw5-dev \
+            zlib1g-dev gawk git gettext libssl-dev xsltproc wget unzip python3 libarchive-tools
+          
+          # 赋予脚本执行权限
           chmod +x build_auto.sh
 
-      - name: Install system dependencies
+      - name: Build universal IPK (all architecture)
         run: |
-          # 安装 build_auto.sh 所需的系统工具
-          sudo apt update -y
-          sudo apt install -y \
-            build-essential libncurses5-dev libncursesw5-dev \
-            zlib1g-dev gawk git gettext libssl-dev xsltproc \
-            wget unzip python3 libarchive-tools  # 包含 bsdtar 等验证工具
-
-      - name: Run build script for ${{ matrix.target }}
-        env:
-          # 向脚本传递目标架构参数（需修改 build_auto.sh 支持多架构）
-          TARGET_ARCH: ${{ matrix.target }}
-        run: |
-          # 执行本地编译脚本，复用其逻辑（下载SDK、编译等）
+          # 执行编译脚本，生成通用all架构包
           ./build_auto.sh
 
-      - name: Collect build artifacts
+      - name: Verify and rename IPK
         run: |
-          # 创建架构专属输出目录
-          mkdir -p output/${{ matrix.target }}
-          # 从脚本导出的环境变量中获取IPK路径
-          cp ${{ env.IPK_PATH }} output/${{ matrix.target }}/
+          # 从环境变量获取编译产物路径
+          IPK_PATH=${{ env.IPK_PATH }}
+          
+          # 验证文件存在
+          if [ ! -f "$IPK_PATH" ]; then
+            echo "❌ 错误：未找到编译生成的IPK文件"
+            exit 1
+          fi
+          
+          # 重命名为通用格式（含版本号和all标识）
+          VERSION_TAG=${{ github.ref_name }}
+          UNIVERSAL_IPK="luci-theme-kucat_${VERSION_TAG}_all.ipk"
+          cp "$IPK_PATH" "$UNIVERSAL_IPK"
+          
+          # 输出最终文件信息
+          echo "✅ 通用IPK生成完成：$UNIVERSAL_IPK"
+          ls -lh "$UNIVERSAL_IPK"
+          
+          # 导出重命名后的路径
+          echo "UNIVERSAL_IPK=$UNIVERSAL_IPK" >> $GITHUB_ENV
 
-      - name: Upload per-architecture IPK
-        uses: actions/upload-artifact@v4
-        with:
-          name: kuci-theme-kucat-${{ matrix.target }}
-          path: output/${{ matrix.target }}/*.ipk
-
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download all architecture artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: all_artifacts
-          merge-multiple: true
-
-      - name: Prepare release assets
+      - name: Create release assets
         run: |
+          # 创建发布资产目录
           mkdir -p release_assets
-          cp all_artifacts/*.ipk release_assets/
-          # 生成校验和文件
+          # 复制通用IPK
+          cp ${{ env.UNIVERSAL_IPK }} release_assets/
+          # 生成校验和
           cd release_assets && sha256sum *.ipk > SHA256SUMS.txt && cd ..
 
       - name: Create GitHub Release
@@ -79,13 +68,12 @@ jobs:
           name: KuCat Theme ${{ github.ref_name }}
           body: |
             ## KuCat Theme ${{ github.ref_name }}
-            自动构建的LuCI主题包，支持多架构：
-            - x86_64
-            - armvirt-64
+            通用架构版本（all），适用于所有OpenWrt设备
             
             ### 安装方法
-            1. 下载对应架构的IPK文件
-            2. 通过SSH执行：`opkg install luci-theme-kucat_*.ipk`
+            1. 下载 luci-theme-kucat_${{ github.ref_name }}_all.ipk
+            2. 通过SSH执行：`opkg install luci-theme-kucat_${{ github.ref_name }}_all.ipk`
+            3. 刷新LuCI页面即可生效
           files: |
             release_assets/*.ipk
             release_assets/SHA256SUMS.txt
