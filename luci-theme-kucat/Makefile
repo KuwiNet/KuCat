@@ -12,27 +12,15 @@ LUCI_TITLE:=Kucat Theme by KuwiNet
 LUCI_DEPENDS:=
 PKG_VERSION:=2.6.18
 
-# 关键修改：禁用 CSS 压缩工具对 style.css 的处理
-define Build/Prepare
-	$(call Build/Prepare/Default)
-	# 备份原始 style.css 到临时文件
-	cp $(PKG_BUILD_DIR)/htdocs/luci-static/kucat/css/style.css $(PKG_BUILD_DIR)/htdocs/luci-static/kucat/css/style.css.orig
-endef
-
-define Build/Compile
-	$(call Build/Compile/Default)
-	# 用备份的原始文件覆盖可能被压缩的文件
-	if [ -f $(PKG_BUILD_DIR)/htdocs/luci-static/kucat/css/style.css.orig ]; then \
-		cp $(PKG_BUILD_DIR)/htdocs/luci-static/kucat/css/style.css.orig $(PKG_BUILD_DIR)/htdocs/luci-static/kucat/css/style.css; \
-	fi
-endef
-
-# 确保打包时使用未压缩的文件
+# 关键修改：自定义安装规则，跳过style.css压缩
 define Package/luci-theme-$(THEME_NAME)/install
-	$(call Package/luci/install/templates,$(1))
-	# 手动复制文件，跳过压缩步骤
-	cp -r $(PKG_BUILD_DIR)/htdocs $(1)/www/
-	cp -r $(PKG_BUILD_DIR)/ luasrc $(1)/
+	# 安装其他文件（沿用默认压缩规则）
+	$(call Package/luci/install,$(1))
+	
+	# 强制覆盖已安装的压缩版style.css，使用原始文件
+	# 确保路径与实际项目中style.css的位置一致
+	cp $(PKG_BUILD_DIR)/htdocs/luci-static/kucat/css/style.css \
+	   $(1)/www/luci-static/kucat/css/style.css
 endef
 
 define Package/luci-theme-$(THEME_NAME)/conffiles
@@ -41,5 +29,10 @@ define Package/luci-theme-$(THEME_NAME)/conffiles
 endef
 
 include $(TOPDIR)/feeds/luci/luci.mk
+
+# 禁用LuCI默认的资源压缩钩子
+define Build/Compile
+	$(call Build/Compile/Default)
+endef
 
 # call BuildPackage - OpenWrt buildroot signature
