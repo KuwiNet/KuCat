@@ -22,7 +22,7 @@ Gitee:
 ```
 wget --no-check-certificate -O /usr/bin/install_kucat.sh https://arelay.cn/raw.githubusercontent.com/KuwiNet/KuCat/js/install-kucat.sh && chmod +x /usr/bin/install_kucat.sh && sh /usr/bin/install_kucat.sh
 ```
-## 构建
+## 本地构建
 ```
-curl -LO https://raw.githubusercontent.com/KuwiNet/KuCat/js/build_auto.sh && chmod +x build_auto.sh && ./build_auto.sh
+curl -LO https://raw.githubusercontent.com/KuwiNet/KuCat/js/build.sh && chmod +x build.sh && ./build.sh
 ```
