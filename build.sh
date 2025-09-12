@@ -1,192 +1,132 @@
 #!/bin/bash
-set -ex
+set -e
 
-#========== 唯一需要改的地方 ==========
-OPENWRT_BRANCH="24.10.2"          # 22.03 / 23.05 / 24.10 均可
-KuCat_Version="2.6.15"
-#=====================================
-ROOT="$HOME/kucat-auto-${OPENWRT_BRANCH//./}"
-OUT="$ROOT/bin/all-archs"
-mkdir -p "$OUT"
+echo "📦 构建 LuCI 主题 Kucat (all 架构专用版)"
 
-# 切换到工作目录
-cd "$ROOT"
+# -------------------------------
+# Step 1: 提取版本号
+# -------------------------------
+if [ ! -f "luci-theme-kucat/Makefile" ]; then
+  echo "❌ 错误：找不到 luci-theme-kucat/Makefile" >&2
+  exit 1
+fi
 
-# 安装依赖（如果已经安装就跳过）
-echo "========== 检查依赖 =========="
-if ! command -v curl &>/dev/null; then
-    echo "❌ 请先安装 curl"
+PKG_VERSION=$(awk -F'[ =]+' '/^PKG_VERSION:/ {print $2; exit}' luci-theme-kucat/Makefile | xargs)
+if [ -z "$PKG_VERSION" ]; then
+  echo "❌ 错误：无法提取 PKG_VERSION" >&2
+  exit 1
+fi
+
+BUILD_DATE="r$(date +%Y%m%d)"
+FULL_VERSION="${PKG_VERSION}-${BUILD_DATE}"
+
+echo "🔖 版本: $PKG_VERSION"
+echo "📅 构建日期: $BUILD_DATE"
+echo "✅ 完整版本: $FULL_VERSION"
+
+# -------------------------------
+# Step 2: 配置路径
+# -------------------------------
+SDK_URL="https://downloads.openwrt.org/releases/23.05.2/targets/x86/64/openwrt-sdk-23.05.2-x86-64_gcc-12.3.0_musl.Linux-x86_64.tar.xz"
+SDK_DIR="openwrt-sdk"
+# 直接使用SDK的输出目录作为最终输出目录
+OUTPUT_DIR="$SDK_DIR/bin/packages/x86_64/base"
+
+# -------------------------------
+# Step 3: 下载 SDK
+# -------------------------------
+if [ ! -d "$SDK_DIR" ]; then
+  echo "⬇️ 下载 OpenWrt SDK..."
+  wget -qO- "$SDK_URL" | tar -xJ
+  mv openwrt-sdk-* "$SDK_DIR" || true
+fi
+
+if [ ! -d "$SDK_DIR" ]; then
+  echo "❌ 错误：SDK 目录缺失" >&2
+  exit 1
+fi
+
+# -------------------------------
+# Step 4: 复制主题 + 安装最小依赖
+# -------------------------------
+echo "📂 复制主题到 SDK..."
+rm -rf "$SDK_DIR/package/luci-theme-kucat" 2>/dev/null || true
+cp -r luci-theme-kucat "$SDK_DIR/package/"
+
+cd "$SDK_DIR"
+
+echo "🔄 更新 feeds..."
+./scripts/feeds update -i
+./scripts/feeds update luci
+
+echo "📦 安装最小依赖: luci-base"
+./scripts/feeds install -p luci luci-base
+
+make defconfig
+
+cd - > /dev/null
+
+echo "✅ 最小依赖安装完成"
+
+# -------------------------------
+# Step 5: 编译主题
+# -------------------------------
+echo "⚙️ 开始编译..."
+make -C "$SDK_DIR" package/luci-theme-kucat/compile V=s
+
+# -------------------------------
+# Step 6: 查找并验证编译生成的 IPK
+# -------------------------------
+# 匹配 SDK 编译输出的 IPK 路径
+IPK_GLOB="$OUTPUT_DIR/luci-theme-kucat_${PKG_VERSION}_*.ipk"
+IPK_REAL_SRC=$(ls $IPK_GLOB 2>/dev/null | head -n1 | xargs realpath 2>/dev/null)
+
+if [ ! -f "$IPK_REAL_SRC" ]; then
+  echo "❌ 错误：未找到编译生成的 .ipk 文件！期望路径格式：" >&2
+  echo "    $IPK_GLOB" >&2
+  # 辅助排查：列出所有可能的 IPK 文件
+  echo "当前 SDK 输出目录下的 IPK 文件："
+  find "$SDK_DIR/bin/packages" -type f -name "luci-theme-kucat_*.ipk" -ls 2>/dev/null || echo "无"
+  exit 1
+fi
+
+echo "✅ 找到编译生成的 IPK: $IPK_REAL_SRC"
+
+# 验证 IPK 文件格式有效性
+echo "🔍 验证 IPK 文件格式..."
+if ! ar t "$IPK_REAL_SRC" >/dev/null 2>&1; then
+  echo "⚠️ ar 工具验证失败，尝试使用 bsdtar 二次验证..."
+  if command -v bsdtar >/dev/null; then
+    if ! bsdtar -tf "$IPK_REAL_SRC" >/dev/null; then
+      echo "❌ IPK 文件损坏或格式不正确"
+      echo "文件信息: $(file "$IPK_REAL_SRC")"
+      echo "文件大小: $(du -h "$IPK_REAL_SRC")"
+      exit 1
+    else
+      echo "✅ bsdtar 验证通过（IPK 格式有效）"
+    fi
+  else
+    echo "❌ 请安装 libarchive-tools 以验证 IPK：sudo apt-get install libarchive-tools"
     exit 1
+  fi
 else
-    echo "✅ curl 已安装"
+  echo "✅ ar 验证通过（IPK 格式有效）"
 fi
 
-if ! command -v zstd &>/dev/null; then
-    echo ">>> 安装 zstd..."
-    sudo apt-get install -y zstd
-else
-    echo "✅ zstd 已安装"
-fi
+# -------------------------------
+# Step 7: 显示构建结果
+# -------------------------------
+echo -e "\n🎉 构建成功！最终文件信息："
+ls -lh "$IPK_REAL_SRC"
+echo "📁 输出路径：$IPK_REAL_SRC"
 
-# 安装编译所需的Python依赖
-echo ">>> 安装Python依赖..."
-sudo apt-get update
-sudo apt-get install -y python3-pyelftools python3-dev python3-setuptools swig rsync
-
-# n 个靶机
-declare -A TARGET_MAP=(
-  [x86_64]="x86/64"
-  [mediatek]="mediatek/filogic"
-  [rockchip]="rockchip/armv8"
-)
-
-# 如果环境变量 ARCH 存在，就用它；否则按原来的 for 循环
-if [[ -n "$ARCH" ]]; then
-    # 创建一个新的关联数组，只包含指定的架构
-    declare -A FILTERED_MAP
-    if [[ -n "${TARGET_MAP[$ARCH]}" ]]; then
-        FILTERED_MAP["$ARCH"]="${TARGET_MAP[$ARCH]}"
-    else
-        echo "❌ 未知的架构: $ARCH"
-        exit 1
-    fi
-    # 将 TARGET_MAP 替换为过滤后的版本
-    unset TARGET_MAP
-    declare -A TARGET_MAP
-    for key in "${!FILTERED_MAP[@]}"; do
-        TARGET_MAP["$key"]="${FILTERED_MAP[$key]}"
-    done
-fi
-
-download_sdk() {
-  local arch=$1 tgt=$2 sub=$3
-  local urls=(
-    "https://downloads.openwrt.org/releases/${OPENWRT_BRANCH}/targets/${tgt}/${sub}/"
-    "https://mirror-03.infra.openwrt.org/releases/${OPENWRT_BRANCH}/targets/${tgt}/${sub}/"
-  )
-  local html="" url=""
-  for u in "${urls[@]}"; do
-    echo ">>> 尝试抓取 $u" >&2
-    html=$(curl -sL -f "$u" 2>&1) && { url="$u"; break; } || continue
-  done
-  [[ -n $html ]] || { echo "❌ 所有 mirror 均无法访问" >&2; exit 1; }
-
-  local sdk_file=$(echo "$html" | \
-  grep -oE 'href="(openwrt-sdk-[^"]+Linux-x86_64\.tar\.(xz|zst))"' | \
-  head -1 | sed 's/href="//;s/"//' | xargs)
-  [[ -n $sdk_file ]] || { echo "❌ 未解析到 SDK 文件名" >&2; exit 1; }
-  echo ">>> 解析到：$sdk_file" >&2
-  echo "$url$sdk_file"
+# -------------------------------
+# 清理函数（可选）
+# -------------------------------
+cleanup() {
+  echo -e "\n🧹 清理临时文件..."
+  # 可选：清理SDK编译缓存
+  # make -C "$SDK_DIR" package/luci-theme-kucat/clean >/dev/null 2>&1
+  echo "✅ 清理完成"
 }
-
-# 预先下载所有需要的SDK
-declare -A SDK_URLS
-for arch in "${!TARGET_MAP[@]}"; do
-  echo "========== 处理 $arch SDK =========="
-  SDK_URL=$(download_sdk "$arch" ${TARGET_MAP[$arch]})
-  SDK_URLS["$arch"]="$SDK_URL"
-  tarfile=$(basename "$SDK_URL")
-
-  # 检查SDK文件是否已经存在且大小正常
-  if [[ -f "$tarfile" ]]; then
-    file_size=$(stat -c%s "$tarfile")  # 移除 local 关键字
-    if [[ $file_size -gt 1048576 ]]; then
-      echo "✅ $arch SDK 已存在且大小正常 ($((file_size/1024/1024))MB)，跳过下载"
-      continue
-    else
-      echo "⚠️  $arch SDK 文件过小 ($((file_size/1024))KB)，重新下载..."
-      rm -f "$tarfile"
-    fi
-  fi
-
-  echo ">>> 下载 $arch SDK..."
-  curl -L -C - -o "$tarfile" "$SDK_URL"
-
-  # 再次检查文件大小
-  if [[ $(stat -c%s "$tarfile") -lt 1048576 ]]; then
-    echo "❌ $tarfile 过小，可能 404"; exit 1
-  fi
-done
-
-# 处理主题包（每次都更新）
-echo "========== 处理主题包 =========="
-if [[ -d "$ROOT/kucat-theme" ]]; then
-  echo ">>> 更新主题包..."
-  cd "$ROOT/kucat-theme"
-  git pull origin js
-  cd "$ROOT"
-else
-  echo ">>> 克隆主题包..."
-  git clone --depth 1 -b js https://github.com/KuwiNet/KuCat.git "$ROOT/kucat-theme"
-fi
-
-echo "✅ 主题包已更新到最新版本"
-
-# 开始编译每个架构
-for arch in "${!TARGET_MAP[@]}"; do
-  echo "========== 编译 $arch (branch ${OPENWRT_BRANCH}) =========="
-  
-  tarfile=$(basename "${SDK_URLS[$arch]}")
-  dir="sdk-$arch"
-  
-  # 确保我们在正确的目录
-  cd "$ROOT"
-  
-  # 解压SDK（如果目录不存在）
-  if [[ ! -d "$dir" ]]; then
-    echo ">>> 解压 $arch SDK..."
-    mkdir -p "$dir"
-    case "$tarfile" in
-      *.tar.xz)  tar -xf "$tarfile" --strip=1 -C "$dir" ;;
-      *.tar.zst) tar --use-compress-program=unzstd -xf "$tarfile" --strip=1 -C "$dir" ;;
-      *) echo "未知压缩格式"; exit 1 ;;
-    esac
-    echo "✅ $arch SDK 解压完成"
-  else
-    echo "✅ $arch SDK 已解压，跳过"
-  fi
-  
-  cd "$dir"
-
-  # 更新feeds（只运行一次）
-  if [[ ! -f .feeds_updated ]]; then
-    echo ">>> 更新feeds..."
-    ./scripts/feeds update -a
-    ./scripts/feeds install -a
-    touch .feeds_updated
-    echo "✅ feeds 更新完成"
-  else
-    echo "✅ feeds 已更新，跳过"
-  fi
-  
-  # 复制主题包（每次都使用最新的）
-  echo ">>> 复制最新主题包..."
-  rm -rf package/luci-theme-kucat
-  cp -r "$ROOT/kucat-theme/luci-theme-kucat" package/
-
-  # 配置和编译
-  if [[ ! -f .config ]]; then
-    echo ">>> 生成配置..."
-    make defconfig
-    sed -i 's/# CONFIG_PACKAGE_luci-theme-kucat is not set/CONFIG_PACKAGE_luci-theme-kucat=m/' .config
-    make defconfig
-    echo "✅ 配置完成"
-  else
-    echo "✅ 配置已存在，跳过"
-  fi
-
-  # 删除旧的IPK文件
-  echo ">>> 删除旧的IPK文件..."
-  rm -f "$OUT/luci-theme-kucat-${KuCat_Version}-$arch.ipk" 2>/dev/null || true
-
-  echo ">>> 开始编译..."
-  # 只编译主题包，跳过其他包的依赖检查
-  make package/luci-theme-kucat/compile V=s -j$(nproc) IGNORE_ERRORS=m
-  
-  cp bin/packages/*/base/luci-theme-kucat_*.ipk "$OUT/luci-theme-kucat-${KuCat_Version}-$arch.ipk"
-  
-  echo "✅ $arch 编译完成"
-done
-
-echo "====== 所有架构编译完成 ======"
-ls -lh "$OUT"/*.ipk
+trap cleanup EXIT
