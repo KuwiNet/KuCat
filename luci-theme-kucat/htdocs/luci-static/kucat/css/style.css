@@ -346,7 +346,7 @@
 
 .center {
   width: 100%;
-  transform: translate(-50%,-50%);
+  transform: translate(-50,-50%);
   text-align: center
 }
 
@@ -2949,7 +2949,7 @@ td>.ifacebadge,.td>.ifacebadge {
   padding: 1rem;
   min-width: 7rem;
   background-color: rgba(var(--primary-rgbm),0.3);
-  transform: translate(-50%,-50%);
+  transform: translate(-50,-50%);
   color: var(--menu-fontcolor);
   text-align: center !important
 }
@@ -4343,7 +4343,7 @@ div#service_status {
 
 div#add_link_div {
   position: fixed;
-  transform: translate(-50%,-50%);
+  transform: translate(-50,-50%);
   background-color: rgba(var(--primary-rgbbody),1);
   padding: 0px;
   box-shadow: darkgrey 1px 5px 20px 0px;
