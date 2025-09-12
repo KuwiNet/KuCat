@@ -11,14 +11,25 @@ install_if_missing() {
   }
 }
 
-# 增加curl作为依赖包
-for pkg in git ca-certificates make bash coreutils curl wget tar xz-utils; do
+# 增加必要的网络和证书工具
+for pkg in git ca-certificates make bash coreutils curl wget tar xz-utils gnutls-bin ca-certificates; do
   install_if_missing "$pkg"
 done
+
+# 刷新证书以避免TLS问题
+echo "🔄 刷新系统证书..."
+sudo update-ca-certificates --fresh >/dev/null 2>&1
 
 ############## 1. 克隆源码（若已存在则更新） ##############
 REPO_URL="https://github.com/KuwiNet/luci-theme-kucat.git"
 KUCAT_DIR="kucat"
+
+# 保存当前工作目录（项目根目录）
+PROJECT_ROOT=$(pwd)
+# 创建releases目录（使用绝对路径）
+RELEASES_DIR="$PROJECT_ROOT/$KUCAT_DIR/releases"
+mkdir -p "$RELEASES_DIR"
+echo "📂 发布目录设置为: $RELEASES_DIR"
 
 if [ -d "$KUCAT_DIR/.git" ]; then
   echo "🔄 更新已有仓库"
@@ -94,8 +105,11 @@ OUTPUT_DIR="$SDK_DIR/bin/packages/x86_64/base"
 # -------------------------------
 if [ ! -d "$SDK_DIR" ]; then
   echo "⬇️ 下载 OpenWrt SDK..."
-  # 使用curl显示进度条，-#表示进度条模式，-L处理重定向
-  curl -# -L "$SDK_URL" | tar -xJ
+  # 增加重试机制，最多3次尝试
+  if ! curl -# -L --retry 3 --retry-delay 5 "$SDK_URL" | tar -xJ; then
+    echo "❌ SDK下载失败，尝试使用wget重试..."
+    wget --progress=bar:force --tries=3 --wait=5 -O- "$SDK_URL" | tar -xJ
+  fi
   mv openwrt-sdk-* "$SDK_DIR" || true
 fi
 
@@ -114,8 +128,54 @@ cp -r . "$SDK_DIR/package/luci-theme-kucat"
 cd "$SDK_DIR"
 
 echo "🔄 更新 feeds..."
-./scripts/feeds update -i
-./scripts/feeds update luci
+# 增加网络稳定性配置，禁用压缩以避免TLS问题
+export GIT_CONFIG_PARAMETERS="http.sslVerify=true http.postBuffer=1048576000 core.compression=0"
+
+# 多次尝试更新feed，最多3次
+update_feed() {
+  local feed_name=$1
+  local retries=3
+  local count=0
+  
+  while [ $count -lt $retries ]; do
+    count=$((count + 1))
+    echo "📥 第 $count 次尝试更新 $feed_name feed..."
+    
+    if ./scripts/feeds update "$feed_name"; then
+      return 0
+    fi
+    
+    if [ $count -lt $retries ]; then
+      echo "⚠️ 更新失败，$((retries - count)) 次重试机会..."
+      sleep 5
+    fi
+  done
+  
+  return 1
+}
+
+# 先更新所有feed，再单独更新luci
+if ! ./scripts/feeds update -i; then
+  echo "⚠️ 整体feed更新失败，尝试单独更新luci..."
+fi
+
+if ! update_feed "luci"; then
+  echo "❌ 多次尝试后仍无法更新luci feed，尝试手动克隆..."
+  
+  # 手动克隆luci仓库作为最后的备选方案
+  LUCI_FEED_DIR="feeds/luci"
+  LUCI_REPO="https://git.openwrt.org/project/luci.git"
+  
+  rm -rf "$LUCI_FEED_DIR"
+  mkdir -p "$LUCI_FEED_DIR"
+  
+  if git clone "$LUCI_REPO" "$LUCI_FEED_DIR"; then
+    echo "✅ 手动克隆luci仓库成功"
+  else
+    echo "❌ 手动克隆也失败，请检查网络连接" >&2
+    exit 1
+  fi
+fi
 
 echo "📦 安装最小依赖: luci-base"
 ./scripts/feeds install -p luci luci-base
@@ -172,11 +232,34 @@ else
 fi
 
 # -------------------------------
-# Step 7: 显示构建结果
+# Step 7: 移动IPK到releases目录
+# -------------------------------
+# 获取IPK文件名
+IPK_FILENAME=$(basename "$IPK_REAL_SRC")
+# 目标路径（使用绝对路径）
+DEST_PATH="$RELEASES_DIR/$IPK_FILENAME"
+
+# 移动文件
+echo "📤 移动 IPK 文件到 releases 目录..."
+echo "   源: $IPK_REAL_SRC"
+echo "   目标: $DEST_PATH"
+
+# 确保目标目录存在
+mkdir -p "$(dirname "$DEST_PATH")"
+
+if mv "$IPK_REAL_SRC" "$DEST_PATH"; then
+  echo "✅ IPK 文件已成功移动到: $DEST_PATH"
+else
+  echo "⚠️ IPK 文件移动失败，仍保留在原位置: $IPK_REAL_SRC"
+  DEST_PATH="$IPK_REAL_SRC"  # 回退到原始路径
+fi
+
+# -------------------------------
+# Step 8: 显示构建结果
 # -------------------------------
 echo -e "\n🎉 构建成功！最终文件信息："
-ls -lh "$IPK_REAL_SRC"
-echo "📁 输出路径：$IPK_REAL_SRC"
+ls -lh "$DEST_PATH"
+echo "📁 输出路径：$DEST_PATH"
 
 # -------------------------------
 # 清理函数（可选）
