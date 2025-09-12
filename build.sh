@@ -1,7 +1,15 @@
 #!/bin/bash
 set -e
 
-echo "📦 构建 LuCI 主题 Kucat (all 架构专用版)"
+echo "📦 构建 LuCI 主题 Kucat"
+
+# -------------------------------
+# Step 0: 安装环境
+# -------------------------------
+apt-get update
+apt-get install -y git git-http ca-certificates make bash coreutils-stat
+git clone https://github.com/KuwiNet/luci-theme-kucat.git kucat
+cd kucat
 
 # -------------------------------
 # Step 1: 提取版本号
@@ -37,7 +45,7 @@ OUTPUT_DIR="$SDK_DIR/bin/packages/x86_64/base"
 # -------------------------------
 if [ ! -d "$SDK_DIR" ]; then
   echo "⬇️ 下载 OpenWrt SDK..."
-  wget -qO- "$SDK_URL" | tar -xJ
+  wget --show-progress -qO- "$SDK_URL" | tar -xJ
   mv openwrt-sdk-* "$SDK_DIR" || true
 fi
 
