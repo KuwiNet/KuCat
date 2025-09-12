@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 THEME_NAME:=kucat
 THEME_TITLE:=Kucat Theme
 PKG_NAME:=luci-theme-$(THEME_NAME)
-LUCI_TITLE:=Kucat Theme by KuwiNet
+LUCI_TITLE:=Kucat Theme by KuwiNet(kuwi.net)
 PKG_VERSION:=2.7.2
 
 define Package/luci-theme-$(THEME_NAME)/conffiles
