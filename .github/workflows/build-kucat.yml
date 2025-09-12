@@ -5,13 +5,11 @@ on:
   push:
     branches: [ js ]
     paths:
-      - 'luci-theme-kucat/**'
-      - 'build_auto.sh'
+      - 'Makefile'
   pull_request:
     branches: [ js ]
     paths:
-      - 'luci-theme-kucat/**'
-      - 'build_auto.sh'
+      - 'Makefile'
   workflow_dispatch:
 
 jobs:
