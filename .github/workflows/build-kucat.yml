@@ -3,11 +3,17 @@ name: 构建 LuCI 主题 Kucat
 # 触发条件：推送到js分支、手动触发、PR到js分支
 on:
   push:
+    branches:
+      - js
     paths:
-      - 'Makefile'
+      - '**/Makefile'
+      - '!** /node_modules/**'
   pull_request:
+    branches:
+      - js
     paths:
-      - 'Makefile'
+      - '**/Makefile'
+      - '!** /node_modules/**'
   workflow_dispatch:
 
 jobs:
