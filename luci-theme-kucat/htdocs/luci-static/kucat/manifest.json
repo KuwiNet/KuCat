@@ -1,7 +1,7 @@
 {
-    "name": "EzOpWRT Admin",
+    "name": "ZWRT Admin",
     "short_name": "LuCI",
-    "description":"Kucat for OpenWRT by sirpdboy.",
+    "description":"Kucat for OpenWRT by KuwiNet.",
     "start_url": ".",
     "scope": "/",
     "orientation":"any",
