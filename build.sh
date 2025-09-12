@@ -6,8 +6,17 @@ echo "📦 构建 LuCI 主题 Kucat"
 # -------------------------------
 # Step 0: 安装环境
 # -------------------------------
-apt-get update
-apt-get install -y git git-http ca-certificates make bash coreutils-stat
+if command -v apt-get >/dev/null 2>&1; then
+    apt-get update
+    apt-get install -y git ca-certificates make bash coreutils
+elif command -v opkg >/dev/null 2>&1; then
+    opkg update
+    opkg install git git-http ca-certificates make bash coreutils-stat
+else
+    echo "未知的包管理器，请手动安装 git、make、ca-certificates、bash、coreutils"
+    exit 1
+fi
+
 git clone https://github.com/KuwiNet/luci-theme-kucat.git kucat
 cd kucat
 
