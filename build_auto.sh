@@ -62,7 +62,7 @@ done
 echo "📂 复制设置插件到 SDK..."
 rm -rf "$SDK_DIR/package/luci-app-zwrt" 2>/dev/null || true
 mkdir -p "$SDK_DIR/package/luci-app-zwrt"
-for item in Makefile luasrc root; do
+for item in Makefile luasrc root htdocs; do
   [ -e "luci-app-zwrt/$item" ] && cp -r "luci-app-zwrt/$item" "$SDK_DIR/package/luci-app-zwrt/"
 done
 
