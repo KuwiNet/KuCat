@@ -26,8 +26,8 @@
     --radius2: 0.25rem;
     --primary-solid: #fd8c73;
     --menu-barbgcolor: rgba(var(--primary-rgbm), var(--primary-rgbm-ts));
-    --font-apple: -apple-system, "Google Sans", "Microsoft Yahei", "WenQuanYi Micro Hei", sans-serif;
-    --font-sans: "Google Sans", "Microsoft Yahei", "WenQuanYi Micro Hei", sans-serif, "Helvetica Neue", Helvetica, "Hiragino Sans GB";
+    --font-apple: -apple-system, "AlimamaFangYuanTi", "Microsoft Yahei", "WenQuanYi Micro Hei", sans-serif;
+    --font-sans: "AlimamaFangYuanTi", "Microsoft Yahei", "WenQuanYi Micro Hei", sans-serif, "Helvetica Neue", Helvetica, "Hiragino Sans GB";
     --menu-hover-barbgcolor: rgba(255, 255, 255, 0.3)
 }
 
@@ -37,6 +37,15 @@
     font-weight: 400;
     font-style: normal;
     font-display: block
+}
+
+@font-face {
+    font-family: "AlimamaFangYuanTi";
+    src: url('../fonts/AlimamaFangYuanTiVF-Thin.ttf') format('truetype'),
+        url('../fonts/AlimamaFangYuanTiVF-Thin.woff') format('woff'),
+        url('../fonts/AlimamaFangYuanTiVF-Thin.woff2') format('woff2');
+    font-weight: 100 900;
+    font-style: normal;
 }
 
 [class^="icon-"],
@@ -3450,11 +3459,12 @@ body.lang_pl.node-main-login .cbi-value-title {
     padding: 1rem !important
 }
 [data-page^="admin-services-openclash"] #debug-rc-output>textarea {
-    font-family: 'Google Sans' !important
+    font-family: 'AlimamaFangYuanTi' !important
 }
 
 [data-page^="admin-services-openclash"] .CodeMirror {
     font-size: inherit;
+    font-family: 'AlimamaFangYuanTi' !important
 }
 
 [data-page^="admin-services-openclash"] select#CORE_VERSION,

@@ -21,7 +21,7 @@ echo "🔄 刷新系统证书..."
 sudo update-ca-certificates --fresh >/dev/null 2>&1
 
 ############## 1. 克隆源码（若已存在则更新） ##############
-REPO_URL="https://github.com/KuwiNet/luci-theme-kucat.git"
+REPO_URL="https://github.com/KuwiNet/KuCat.git"
 KUCAT_DIR="kucat"
 
 # 保存当前工作目录（项目根目录）
@@ -42,7 +42,7 @@ cd "$KUCAT_DIR"
 
 # 自动检测包含Makefile的正确目录
 echo "🔍 查找主题源目录..."
-SRC_DIR=$(find . -maxdepth 2 -type f -name "Makefile" | grep -m1 "luci-theme-kucat/Makefile" | xargs dirname)
+SRC_DIR=$(find . -maxdepth 2 -type f -name "Makefile" | grep -m1 -E "luci-theme-kucat/Makefile|\./Makefile" | xargs dirname)
 
 if [ -z "$SRC_DIR" ] || [ ! -f "$SRC_DIR/Makefile" ]; then
   echo "❌ 错误：找不到包含Makefile的luci-theme-kucat目录" >&2

@@ -6,12 +6,12 @@ echo "📦 构建 LuCI 主题 Kucat (all 架构专用版)"
 # -------------------------------
 # Step 1: 提取版本号
 # -------------------------------
-if [ ! -f "luci-theme-kucat/Makefile" ]; then
-  echo "❌ 错误：找不到 luci-theme-kucat/Makefile" >&2
+if [ ! -f "Makefile" ]; then
+  echo "❌ 错误：找不到 Makefile（主题源目录为仓库根目录）" >&2
   exit 1
 fi
 
-PKG_VERSION=$(awk -F'[ =]+' '/^PKG_VERSION:/ {print $2; exit}' luci-theme-kucat/Makefile | xargs)
+PKG_VERSION=$(awk -F'[ =]+' '/^PKG_VERSION:/ {print $2; exit}' Makefile | xargs)
 if [ -z "$PKG_VERSION" ]; then
   echo "❌ 错误：无法提取 PKG_VERSION" >&2
   exit 1
@@ -51,7 +51,7 @@ fi
 # -------------------------------
 echo "📂 复制主题到 SDK..."
 rm -rf "$SDK_DIR/package/luci-theme-kucat" 2>/dev/null || true
-cp -r luci-theme-kucat "$SDK_DIR/package/"
+cp -r . "$SDK_DIR/package/luci-theme-kucat"
 
 cd "$SDK_DIR"
 

@@ -79,11 +79,13 @@ git clone --depth 1 "$REPO_URL" "$TMP"
 
 [ -d "$STATIC" ] && rm -rf "$STATIC"
 mkdir -p "$STATIC"
-rsync -a --exclude-from="$EXCLUDE" "$TMP/luci-theme-kucat/htdocs/luci-static/kucat/" "$STATIC/"
+rsync -a --exclude-from="$EXCLUDE" "$TMP/htdocs/luci-static/kucat/" "$STATIC/"
 
 [ -d "$LUCI" ] && rm -rf "$LUCI"
 mkdir -p "$LUCI"
-rsync -a --exclude-from="$EXCLUDE" "$TMP/luci-theme-kucat/luasrc/view/themes/kucat/" "$LUCI/"
+# 注意：上游新版已将视图模板从 Lua(luasrc/view/themes/kucat) 迁移到 ucode(ucode/template/themes/kucat)。
+# 此处源路径已更新为新结构；目标目录需按你设备上 LuCI 的 ucode 模板实际路径核对。
+rsync -a --exclude-from="$EXCLUDE" "$TMP/ucode/template/themes/kucat/" "$LUCI/"
 
 ## 5. 清理临时文件
 rm -rf "$TMP" "$EXCLUDE"
