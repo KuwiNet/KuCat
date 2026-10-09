@@ -229,6 +229,15 @@ if (dayword == "1") {
     <meta name="msapplication-config" content="{{ media }}/browserconfig.xml">
     <meta name="msapplication-TileImage" content="{{ media }}/logo.png">
     <link rel="stylesheet" href="{{ media }}/css/style.css{# ?v=PKG_VERSION #}">
+    <style>
+    @font-face {
+        font-family: 'kucat';
+        src: url('{{ media }}/fonts/kucat.ttf') format('truetype'),
+             url('{{ media }}/fonts/kucat.woff') format('woff');
+        font-weight: 400;
+        font-style: normal;
+    }
+    </style>
 
     <noscript>
         <link rel="stylesheet" href="{{ media }}/css/style.css{# ?v=PKG_VERSION #}">
