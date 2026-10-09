@@ -40,7 +40,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: luci-theme-kucat-${{ env.RELEASE_TAG }}
-          path: ${{ env.IPK_PATH }}
+          path: |
+            ${{ env.IPK_PATH }}
+            ${{ env.APP_IPK }}
           retention-days: 90
 
       - name: 创建GitHub Release
@@ -54,6 +56,10 @@ jobs:
             - 版本: ${{ env.RELEASE_TAG }}
             - 构建时间: ${{ github.event.head_commit.timestamp }}
             - 提交哈希: ${{ github.sha }}
-          files: ${{ env.IPK_PATH }}
+            - 主题 ipk: ${{ env.IPK_PATH }}
+            - 配置插件 ipk: ${{ env.APP_IPK }}
+          files: |
+            ${{ env.IPK_PATH }}
+            ${{ env.APP_IPK }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

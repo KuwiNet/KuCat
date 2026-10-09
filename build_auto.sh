@@ -49,9 +49,19 @@ fi
 # -------------------------------
 # Step 4: 复制主题 + 安装最小依赖
 # -------------------------------
-echo "📂 复制主题到 SDK..."
-rm -rf "$SDK_DIR/package/luci-theme-kucat" 2>/dev/null || true
-cp -r . "$SDK_DIR/package/luci-theme-kucat"
+echo "📂 复制主题与配置插件到 SDK..."
+rm -rf "$SDK_DIR/package/luci-theme-kucat" "$SDK_DIR/package/luci-app-advancedplus" 2>/dev/null || true
+mkdir -p "$SDK_DIR/package/luci-theme-kucat" "$SDK_DIR/package/luci-app-advancedplus"
+
+# 主题源 = 仓库根（排除 .git / .github / luci-app-advancedplus 子目录）
+for item in Makefile htdocs ucode root doc README.md build.sh build_auto.sh install-kucat.sh; do
+  [ -e "$item" ] && cp -r "$item" "$SDK_DIR/package/luci-theme-kucat/"
+done
+
+# KUCAT主题设置配置插件（luci-app-advancedplus），作为主题依赖一起构建
+for item in Makefile luasrc root po; do
+  [ -e "luci-app-advancedplus/$item" ] && cp -r "luci-app-advancedplus/$item" "$SDK_DIR/package/luci-app-advancedplus/"
+done
 
 cd "$SDK_DIR"
 
@@ -59,8 +69,8 @@ echo "🔄 更新 feeds..."
 ./scripts/feeds update -i
 ./scripts/feeds update luci
 
-echo "📦 安装最小依赖: luci-base"
-./scripts/feeds install -p luci luci-base
+echo "📦 安装最小依赖: luci-base + luci-compat"
+./scripts/feeds install -p luci luci-base luci-compat
 
 make defconfig
 
@@ -71,18 +81,23 @@ echo "✅ 最小依赖安装完成"
 # -------------------------------
 # Step 5: 编译主题
 # -------------------------------
-echo "⚙️ 开始编译..."
+echo "⚙️ 开始编译（先编译配置插件，主题依赖它；再编译主题）..."
+make -C "$SDK_DIR" package/luci-app-advancedplus/compile V=s
 make -C "$SDK_DIR" package/luci-theme-kucat/compile V=s
 
 # -------------------------------
 # Step 6: 查找并验证编译生成的 IPK
 # -------------------------------
-# 匹配 SDK 编译输出的 IPK 路径
+# 匹配 SDK 编译输出的 IPK 路径（主题）
 IPK_GLOB="$OUTPUT_DIR/luci-theme-kucat_${PKG_VERSION}_*.ipk"
 IPK_REAL_SRC=$(ls $IPK_GLOB 2>/dev/null | head -n1 | xargs realpath 2>/dev/null)
 
+# 匹配 KUCAT主题设置配置插件 ipk（luci-app-advancedplus）
+APP_GLOB="$OUTPUT_DIR/luci-app-advancedplus_*.ipk"
+APP_REAL_SRC=$(ls $APP_GLOB 2>/dev/null | head -n1 | xargs realpath 2>/dev/null)
+
 if [ ! -f "$IPK_REAL_SRC" ]; then
-  echo "❌ 错误：未找到编译生成的 .ipk 文件！期望路径格式：" >&2
+  echo "❌ 错误：未找到编译生成的主题 .ipk 文件！期望路径格式：" >&2
   echo "    $IPK_GLOB" >&2
   # 辅助排查：列出所有可能的 IPK 文件
   echo "当前 SDK 输出目录下的 IPK 文件："
@@ -90,10 +105,18 @@ if [ ! -f "$IPK_REAL_SRC" ]; then
   exit 1
 fi
 
-echo "✅ 找到编译生成的 IPK: $IPK_REAL_SRC"
+if [ ! -f "$APP_REAL_SRC" ]; then
+  echo "❌ 错误：未找到编译生成的配置插件 .ipk 文件！期望路径格式：" >&2
+  echo "    $APP_GLOB" >&2
+  find "$SDK_DIR/bin/packages" -type f -name "luci-app-advancedplus_*.ipk" -ls 2>/dev/null || echo "无"
+  exit 1
+fi
+
+echo "✅ 找到编译生成的主题 IPK: $IPK_REAL_SRC"
+echo "✅ 找到编译生成的配置插件 IPK: $APP_REAL_SRC"
 
 # 验证 IPK 文件格式有效性
-echo "🔍 验证 IPK 文件格式..."
+echo "🔍 验证 IPK 文件格式（主题）..."
 if ! ar t "$IPK_REAL_SRC" >/dev/null 2>&1; then
   echo "⚠️ ar 工具验证失败，尝试使用 bsdtar 二次验证..."
   if command -v bsdtar >/dev/null; then
@@ -113,16 +136,29 @@ else
   echo "✅ ar 验证通过（IPK 格式有效）"
 fi
 
+echo "🔍 验证 IPK 文件格式（配置插件）..."
+if ! ar t "$APP_REAL_SRC" >/dev/null 2>&1; then
+  if command -v bsdtar >/dev/null; then
+    if ! bsdtar -tf "$APP_REAL_SRC" >/dev/null; then
+      echo "❌ 配置插件 IPK 损坏" >&2
+      exit 1
+    fi
+  fi
+fi
+
 # -------------------------------
 # Step 7: 显示构建结果
 # -------------------------------
 echo -e "\n🎉 构建成功！最终文件信息："
-ls -lh "$IPK_REAL_SRC"
-echo "📁 输出路径：$IPK_REAL_SRC"
+ls -lh "$IPK_REAL_SRC" "$APP_REAL_SRC"
+echo "📁 主题输出路径：$IPK_REAL_SRC"
+echo "📁 配置插件输出路径：$APP_REAL_SRC"
 
 # 导出版本号到 GitHub 环境变量
 echo "RELEASE_TAG=luci-theme-kucat-${FULL_VERSION}" >> $GITHUB_ENV
 echo "IPK_PATH=$IPK_REAL_SRC" >> $GITHUB_ENV  # 导出IPK路径方便后续处理
+echo "APP_IPK=$APP_REAL_SRC" >> $GITHUB_ENV   # 导出配置插件IPK路径
+echo "APP_IPK_NAME=$(basename "$APP_REAL_SRC")" >> $GITHUB_ENV
 
 # -------------------------------
 # 清理函数（可选）

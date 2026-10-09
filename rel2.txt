@@ -1,0 +1,5 @@
+﻿tag=luci-theme-kucat-3.3.6-r20261009
+name=Kucat 主题 luci-theme-kucat-3.3.6-r20261009
+target=js
+assets:
+  - luci-theme-kucat_3.3.6_all.ipk (11406464 bytes, updated 2026-10-09T02:59:52Z)
