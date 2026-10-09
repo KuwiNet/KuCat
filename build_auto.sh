@@ -28,7 +28,7 @@ echo "✅ 完整版本: $FULL_VERSION"
 # Step 2: 配置路径
 # -------------------------------
 SDK_URL="https://downloads.openwrt.org/releases/23.05.2/targets/x86/64/openwrt-sdk-23.05.2-x86-64_gcc-12.3.0_musl.Linux-x86_64.tar.xz"
-SDK_DIR="openwrt-sdk"
+SDK_DIR="../openwrt-sdk"  # 主题现位于仓库根目录，SDK 需放到仓库根之外，避免 cp 复制自指
 # 直接使用SDK的输出目录作为最终输出目录
 OUTPUT_DIR="$SDK_DIR/bin/packages/x86_64/base"
 
