@@ -122,7 +122,7 @@ return baseclass.extend({
         basic: []
     },
     
-    currentCategory: 'basic',
+    currentCategory: 'allmenu',
     menuRendered: false,
 
     __init__: function() {
