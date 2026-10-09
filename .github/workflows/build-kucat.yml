@@ -7,13 +7,11 @@ on:
       - js
     paths:
       - '**/Makefile'
-      - '!** /node_modules/**'
   pull_request:
     branches:
       - js
     paths:
       - '**/Makefile'
-      - '!** /node_modules/**'
   workflow_dispatch:
 
 jobs:
@@ -39,7 +37,7 @@ jobs:
       - name: 上传IPK作为构建产物
         uses: actions/upload-artifact@v4
         with:
-          name: luci-theme-kucat-${{ env.RELEASE_TAG }}
+          name: luci-theme-kucat-ipk
           path: |
             ${{ env.IPK_PATH }}
           retention-days: 90
@@ -57,7 +55,44 @@ jobs:
             - 提交哈希: ${{ github.sha }}
             - 主题 ipk: ${{ env.IPK_PATH }}
             - 依赖（自动从固件源安装）: luci-app-advancedplus、luci-app-kucat-config
+            - opkg 软件源（添加后自动更新）: https://kuwinet.github.io/KuCat/feeds/all
           files: |
             ${{ env.IPK_PATH }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # 把 ipk 生成 opkg 索引并部署到 GitHub Pages，作为可更新的软件源
+  publish-pages:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 下载 IPK 产物
+        uses: actions/download-artifact@v4
+        with:
+          name: luci-theme-kucat-ipk
+          path: feeds/all
+
+      - name: 生成 opkg 软件源索引
+        run: |
+          python3 scripts/gen-opkg-index.py feeds/all
+          ls -la feeds/all/
+
+      - name: 上传 Pages 产物
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: feeds
+
+      - name: 部署到 GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
