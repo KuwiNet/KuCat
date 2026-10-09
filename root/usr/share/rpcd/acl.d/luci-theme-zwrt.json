@@ -1,0 +1,30 @@
+{
+    "luci-theme-zwrt": {
+        "description": "Grant UCI access for luci-theme-zwrt",
+        "read": {
+		"file": {
+				"/www/luci-static/zwrt/background/*": [ "list", "read" ],
+				"/www/luci-static/resources/background/*": [ "list", "read" ],
+				"/usr/libexec/rpcd/luci.zwrtget": [ "exec" ],
+				"/www/luci-static/zwrt/img/*": [ "list", "read" ],
+				"/tmp/*": [ "read" ] ,
+				"/var/zwrt/*": [ "read" ] ,
+				"/etc/config/zwrt": [ "read" ]
+			},
+            "uci": [ "zwrt" ]
+        },
+		"write": {
+			"file": {
+				"/tmp/*": [ "write", "read", "delete", "exec" ],
+				"/usr/libexec/rpcd/luci.zwrtget": [ "exec" ],
+				"/www/luci-static/zwrt/background/*": [ "write", "read", "delete", "upload" ],  
+				"/www/luci-static/resources/background/*": [ "write", "read", "delete", "upload" ],
+				"/www/luci-static/zwrt/img/*": [ "write", "read", "delete", "upload" ],
+				"/etc/config/zwrt": [ "write" ],
+				"/var/zwrt/*": [ "write" ]
+			},
+			"uci": [ "zwrt" ]
+		}
+	}
+    }
+}

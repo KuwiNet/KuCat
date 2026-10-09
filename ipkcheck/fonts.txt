@@ -1,3 +1,0 @@
-﻿--- 包内 fonts 目录全部文件 ---
-AlimamaFangYuanTiVF-Thin.ttf = 7402152
---- 包内全部 kucat 相关文件 ---

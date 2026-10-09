@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "📦 构建 LuCI 主题 Kucat (all 架构专用版)"
+echo "📦 构建 LuCI 主题 ZWRT (all 架构专用版)"
 
 # -------------------------------
 # Step 1: 提取版本号
@@ -50,12 +50,20 @@ fi
 # Step 4: 复制主题 + 安装最小依赖
 # -------------------------------
 echo "📂 复制主题到 SDK..."
-rm -rf "$SDK_DIR/package/luci-theme-kucat" 2>/dev/null || true
-mkdir -p "$SDK_DIR/package/luci-theme-kucat"
+rm -rf "$SDK_DIR/package/luci-theme-zwrt" 2>/dev/null || true
+mkdir -p "$SDK_DIR/package/luci-theme-zwrt"
 
 # 主题源 = 仓库根（排除 .git / .github 子目录）
-for item in Makefile htdocs ucode root doc README.md build.sh build_auto.sh install-kucat.sh; do
-  [ -e "$item" ] && cp -r "$item" "$SDK_DIR/package/luci-theme-kucat/"
+for item in Makefile htdocs ucode root doc README.md build.sh build_auto.sh install-zwrt.sh; do
+  [ -e "$item" ] && cp -r "$item" "$SDK_DIR/package/luci-theme-zwrt/"
+done
+
+# 设置插件 luci-app-zwrt
+echo "📂 复制设置插件到 SDK..."
+rm -rf "$SDK_DIR/package/luci-app-zwrt" 2>/dev/null || true
+mkdir -p "$SDK_DIR/package/luci-app-zwrt"
+for item in Makefile luasrc root; do
+  [ -e "luci-app-zwrt/$item" ] && cp -r "luci-app-zwrt/$item" "$SDK_DIR/package/luci-app-zwrt/"
 done
 
 cd "$SDK_DIR"
@@ -73,16 +81,19 @@ cd - > /dev/null
 echo "✅ 最小依赖安装完成"
 
 # -------------------------------
-# Step 5: 编译主题
+# Step 5: 编译主题 + 设置插件
 # -------------------------------
 echo "⚙️ 开始编译主题..."
-make -C "$SDK_DIR" package/luci-theme-kucat/compile V=s
+make -C "$SDK_DIR" package/luci-theme-zwrt/compile V=s
+
+echo "⚙️ 开始编译设置插件..."
+make -C "$SDK_DIR" package/luci-app-zwrt/compile V=s
 
 # -------------------------------
 # Step 6: 查找并验证编译生成的 IPK
 # -------------------------------
 # 匹配 SDK 编译输出的 IPK 路径（主题）
-IPK_GLOB="$OUTPUT_DIR/luci-theme-kucat_${PKG_VERSION}_*.ipk"
+IPK_GLOB="$OUTPUT_DIR/luci-theme-zwrt_${PKG_VERSION}_*.ipk"
 IPK_REAL_SRC=$(ls $IPK_GLOB 2>/dev/null | head -n1 | xargs realpath 2>/dev/null)
 
 if [ ! -f "$IPK_REAL_SRC" ]; then
@@ -90,7 +101,7 @@ if [ ! -f "$IPK_REAL_SRC" ]; then
   echo "    $IPK_GLOB" >&2
   # 辅助排查：列出所有可能的 IPK 文件
   echo "当前 SDK 输出目录下的 IPK 文件："
-  find "$SDK_DIR/bin/packages" -type f -name "luci-theme-kucat_*.ipk" -ls 2>/dev/null || echo "无"
+  find "$SDK_DIR/bin/packages" -type f -name "luci-theme-zwrt_*.ipk" -ls 2>/dev/null || echo "无"
   exit 1
 fi
 
@@ -124,9 +135,21 @@ echo -e "\n🎉 构建成功！最终文件信息："
 ls -lh "$IPK_REAL_SRC"
 echo "📁 主题输出路径：$IPK_REAL_SRC"
 
+# 查找设置插件 IPK
+APP_IPK_GLOB="$OUTPUT_DIR/luci-app-zwrt_${PKG_VERSION}_*.ipk"
+APP_IPK_REAL_SRC=$(ls $APP_IPK_GLOB 2>/dev/null | head -n1 | xargs realpath 2>/dev/null)
+if [ ! -f "$APP_IPK_REAL_SRC" ]; then
+  echo "❌ 错误：未找到设置插件 .ipk！期望：$APP_IPK_GLOB" >&2
+  find "$SDK_DIR/bin/packages" -type f -name "luci-app-zwrt_*.ipk" -ls 2>/dev/null || echo "无"
+  exit 1
+fi
+echo "📁 设置插件输出路径：$APP_IPK_REAL_SRC"
+ls -lh "$APP_IPK_REAL_SRC"
+
 # 导出版本号到 GitHub 环境变量
-echo "RELEASE_TAG=luci-theme-kucat-${FULL_VERSION}" >> $GITHUB_ENV
+echo "RELEASE_TAG=luci-theme-zwrt-${FULL_VERSION}" >> $GITHUB_ENV
 echo "IPK_PATH=$IPK_REAL_SRC" >> $GITHUB_ENV  # 导出IPK路径方便后续处理
+echo "APP_IPK_PATH=$APP_IPK_REAL_SRC" >> $GITHUB_ENV
 
 # -------------------------------
 # 清理函数（可选）
@@ -134,7 +157,7 @@ echo "IPK_PATH=$IPK_REAL_SRC" >> $GITHUB_ENV  # 导出IPK路径方便后续处�
 cleanup() {
   echo -e "\n🧹 清理临时文件..."
   # 可选：清理SDK编译缓存
-  # make -C "$SDK_DIR" package/luci-theme-kucat/clean >/dev/null 2>&1
+  # make -C "$SDK_DIR" package/luci-theme-zwrt/clean >/dev/null 2>&1
   echo "✅ 清理完成"
 }
 trap cleanup EXIT

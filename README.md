@@ -1,4 +1,4 @@
-# KuCat主题 （luci-theme-kucat）
+# ZWRT主题 （luci-theme-zwrt）
 
   <p align="center">
 
@@ -7,21 +7,21 @@
 ## 这里只是在原主题前端基础上做一点修改
 **仅修改图标和页脚。
 ## 用法：
-### 1.安装KuCat主题（会自动带上依赖的配置插件 luci-app-advancedplus 与 luci-app-kucat-config）:
+### 1.安装ZWRT主题（会自动带上依赖的配置插件 luci-app-advancedplus 与 luci-app-zwrt-config）:
 ```
 opkg update
-opkg install luci-theme-kucat
+opkg install luci-theme-zwrt
 ```
 ### 2.再在[终端](http://zwrt/cgi-bin/luci/admin/services/ttyd/ttyd)运行：
 Github:
 ```
-wget --no-check-certificate -O /usr/bin/install_kucat.sh https://raw.githubusercontent.com/KuwiNet/KuCat/js/install-kucat.sh && chmod +x /usr/bin/install_kucat.sh && sh /usr/bin/install_kucat.sh
+wget --no-check-certificate -O /usr/bin/install_zwrt.sh https://raw.githubusercontent.com/KuwiNet/ZWRT-Theme/js/install-zwrt.sh && chmod +x /usr/bin/install_zwrt.sh && sh /usr/bin/install_zwrt.sh
 ```
 Gitee:
 ```
-wget --no-check-certificate -O /usr/bin/install_kucat.sh https://arelay.cn/raw.githubusercontent.com/KuwiNet/KuCat/js/install-kucat.sh && chmod +x /usr/bin/install_kucat.sh && sh /usr/bin/install_kucat.sh
+wget --no-check-certificate -O /usr/bin/install_zwrt.sh https://arelay.cn/raw.githubusercontent.com/KuwiNet/ZWRT-Theme/js/install-zwrt.sh && chmod +x /usr/bin/install_zwrt.sh && sh /usr/bin/install_zwrt.sh
 ```
 ## 本地构建
 ```
-curl -LO https://raw.githubusercontent.com/KuwiNet/KuCat/js/build.sh && chmod +x build.sh && ./build.sh
+curl -LO https://raw.githubusercontent.com/KuwiNet/ZWRT-Theme/js/build.sh && chmod +x build.sh && ./build.sh
 ```

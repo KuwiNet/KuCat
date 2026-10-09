@@ -35,27 +35,27 @@ jobs:
 
       - name: Prepare package feed
         run: |
-            mkdir -p feed/luci-theme-kucat
+            mkdir -p feed/luci-theme-zwrt
             if [ -f "Makefile" ]; then
             echo "Makefile found in root, copying all files"
-            cp -r * feed/luci-theme-kucat/ 2>/dev/null || true
+            cp -r * feed/luci-theme-zwrt/ 2>/dev/null || true
             # 如果Makefile在子目录
-            elif [ -f "luci-theme-kucat/Makefile" ]; then
-            echo "Makefile found in luci-app-kucat-config subdirectory"
-            cp -r luci-theme-kucat/* feed/luci-theme-kucat/
+            elif [ -f "luci-theme-zwrt/Makefile" ]; then
+            echo "Makefile found in luci-app-zwrt-config subdirectory"
+            cp -r luci-theme-zwrt/* feed/luci-theme-zwrt/
             else
             echo "ERROR: Cannot find Makefile"
             find . -name "Makefile"
             exit 1
             fi
             echo "Final feed structure:"
-            ls -la feed/luci-theme-kucat/
+            ls -la feed/luci-theme-zwrt/
       - name: Build packages
         uses: sirpdboy/gh-action-sdk@go1.26
         env:
           ARCH: ${{ matrix.arch }}-${{ matrix.sdk }}
           FEEDNAME: packages_ci
-          PACKAGES: luci-theme-kucat
+          PACKAGES: luci-theme-zwrt
           FEED_DIR: ${{ github.workspace }}/feed
           NO_REFRESH_CHECK: true
 

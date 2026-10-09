@@ -1,0 +1,101 @@
+name: 构建 LuCI 主题 ZWRT
+
+# 触发条件：推送到js分支、手动触发、PR到js分支
+on:
+  push:
+    branches:
+      - js
+    paths:
+      - '**/Makefile'
+  pull_request:
+    branches:
+      - js
+    paths:
+      - '**/Makefile'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装依赖工具
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libncurses5-dev libncursesw5-dev \
+            zlib1g-dev gawk git gettext libssl-dev xsltproc wget unzip python3 \
+            libarchive-tools
+
+      - name: 执行构建脚本
+        run: |
+          chmod +x build_auto.sh  # 确保脚本可执行
+          ./build_auto.sh  # 运行你的构建脚本
+
+      - name: 上传IPK作为构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: luci-theme-zwrt-ipk
+          path: |
+            ${{ env.IPK_PATH }}
+            ${{ env.APP_IPK_PATH }}
+          retention-days: 90
+
+      - name: 创建GitHub Release
+        if: github.event_name != 'pull_request'  # PR时不创建Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: ZWRT 主题 ${{ env.RELEASE_TAG }}
+          body: |
+            ## 自动构建信息
+            - 版本: ${{ env.RELEASE_TAG }}
+            - 构建时间: ${{ github.event.head_commit.timestamp }}
+            - 提交哈希: ${{ github.sha }}
+            - 主题 ipk: ${{ env.IPK_PATH }}
+            - 设置插件 ipk: ${{ env.APP_IPK_PATH }}
+            - 依赖（自包含）: 无需外部配置插件，自带壁纸下载与默认配色；设置界面由 luci-app-zwrt 提供
+            - opkg 软件源（添加后自动更新）: https://kuwinet.github.io/ZWRT-Theme/all
+          files: |
+            ${{ env.IPK_PATH }}
+            ${{ env.APP_IPK_PATH }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # 把 ipk 生成 opkg 索引并部署到 GitHub Pages，作为可更新的软件源
+  publish-pages:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 下载 IPK 产物
+        uses: actions/download-artifact@v4
+        with:
+          name: luci-theme-zwrt-ipk
+          path: feeds/all
+
+      - name: 生成 opkg 软件源索引
+        run: |
+          python3 scripts/gen-opkg-index.py feeds/all
+          ls -la feeds/all/
+
+      - name: 上传 Pages 产物
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: feeds
+
+      - name: 部署到 GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,15 @@
+{
+	"luci-app-zwrt": {
+		"title": "ZWRT Theme Settings",
+		"description": "Grant access to ZWRT theme settings",
+		"read": {
+			"ubus": {
+				"luci.zwrtget": [ "get_auto_theme", "get_url", "get_word" ]
+			},
+			"uci": [ "zwrt" ]
+		},
+		"write": {
+			"uci": [ "zwrt" ]
+		}
+	}
+}

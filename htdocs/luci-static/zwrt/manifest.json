@@ -1,0 +1,50 @@
+{
+    "name": "ZWRT Admin",
+    "short_name": "LuCI",
+    "description":"ZWRT for OpenWRT by KuwiNet.",
+    "start_url": "/cgi-bin/luci/",
+    "scope": "/",
+    "orientation":"any",
+    "splash_pages": null,
+    "background_color": "#f8f8f8", 
+    "theme_color": "#2d3a4b", 
+    "theme_color_light": "#ffffff",
+    "theme_color_dark": "#1a1a1a",
+    "prompt_message":"fast read ZWRT",
+  "icons": [
+    {
+      "src": "/luci-static/zwrt/logo.svg",
+      "sizes": "any", 
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+
+    {
+      "src": "/luci-static/zwrt/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/luci-static/zwrt/img/logo70.png",
+      "sizes": "70x70",
+      "type": "image/png"
+    },
+    {
+      "src": "/luci-static/zwrt/img/logo150.png",
+      "sizes": "150x150",
+      "type": "image/png"
+    },
+    {
+      "src": "/luci-static/zwrt/img/logo310.png",
+      "sizes": "310x310",
+      "type": "image/png"
+    },
+    {
+      "src": "/luci-static/zwrt/img/logo512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+],
+"display":"standalone"
+}

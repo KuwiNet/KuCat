@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "📦 构建 LuCI 主题 Kucat"
+echo "📦 构建 LuCI 主题 ZWRT"
 ############## 0. 工具检测 / 仅安装缺失包 ##############
 install_if_missing() {
   dpkg -l "$1" 2>/dev/null | grep -q '^ii' || {
@@ -21,37 +21,37 @@ echo "🔄 刷新系统证书..."
 sudo update-ca-certificates --fresh >/dev/null 2>&1
 
 ############## 1. 克隆源码（若已存在则更新） ##############
-REPO_URL="https://github.com/KuwiNet/KuCat.git"
-KUCAT_DIR="kucat"
+REPO_URL="https://github.com/KuWiNet/ZWRT-Theme.git"
+ZWRT_DIR="zwrt"
 
 # 保存当前工作目录（项目根目录）
 PROJECT_ROOT=$(pwd)
 # 创建releases目录（使用绝对路径）
-RELEASES_DIR="$PROJECT_ROOT/$KUCAT_DIR/releases"
+RELEASES_DIR="$PROJECT_ROOT/$ZWRT_DIR/releases"
 mkdir -p "$RELEASES_DIR"
 echo "📂 发布目录设置为: $RELEASES_DIR"
 
-if [ -d "$KUCAT_DIR/.git" ]; then
+if [ -d "$ZWRT_DIR/.git" ]; then
   echo "🔄 更新已有仓库"
-  git -C "$KUCAT_DIR" pull --ff-only
+  git -C "$ZWRT_DIR" pull --ff-only
 else
   echo "⬇️  克隆仓库"
-  git clone "$REPO_URL" "$KUCAT_DIR"
+  git clone "$REPO_URL" "$ZWRT_DIR"
 fi
-cd "$KUCAT_DIR"
+cd "$ZWRT_DIR"
 
 # 自动检测包含Makefile的正确目录
 echo "🔍 查找主题源目录..."
-SRC_DIR=$(find . -maxdepth 2 -type f -name "Makefile" | grep -m1 -E "luci-theme-kucat/Makefile|\./Makefile" | xargs dirname)
+SRC_DIR=$(find . -maxdepth 2 -type f -name "Makefile" | grep -m1 -E "luci-theme-zwrt/Makefile|\./Makefile" | xargs dirname)
 
 if [ -z "$SRC_DIR" ] || [ ! -f "$SRC_DIR/Makefile" ]; then
-  echo "❌ 错误：找不到包含Makefile的luci-theme-kucat目录" >&2
+  echo "❌ 错误：找不到包含Makefile的luci-theme-zwrt目录" >&2
   echo "🔍 尝试手动指定目录结构..."
   
   # 尝试常见的目录结构
   possible_dirs=(
-    "luci-theme-kucat"
-    "src/luci-theme-kucat"
+    "luci-theme-zwrt"
+    "src/luci-theme-zwrt"
     "."
   )
   
@@ -93,10 +93,10 @@ echo "📅 构建日期: $BUILD_DATE"
 echo "✅ 完整版本: $FULL_VERSION"
 
 # -------------------------------
-# Step 2: 配置路径（SDK放在kucat目录中）
+# Step 2: 配置路径（SDK放在zwrt目录中）
 # -------------------------------
 SDK_URL="https://downloads.openwrt.org/releases/23.05.2/targets/x86/64/openwrt-sdk-23.05.2-x86-64_gcc-12.3.0_musl.Linux-x86_64.tar.xz"
-SDK_DIR="../openwrt-sdk"  # SDK将位于kucat目录下，与主题源目录同级
+SDK_DIR="../openwrt-sdk"  # SDK将位于zwrt目录下，与主题源目录同级
 # 直接使用SDK的输出目录作为最终输出目录
 OUTPUT_DIR="$SDK_DIR/bin/packages/x86_64/base"
 
@@ -122,8 +122,8 @@ fi
 # Step 4: 复制主题 + 安装最小依赖
 # -------------------------------
 echo "📂 复制主题到 SDK..."
-rm -rf "$SDK_DIR/package/luci-theme-kucat" 2>/dev/null || true
-cp -r . "$SDK_DIR/package/luci-theme-kucat"
+rm -rf "$SDK_DIR/package/luci-theme-zwrt" 2>/dev/null || true
+cp -r . "$SDK_DIR/package/luci-theme-zwrt"
 
 cd "$SDK_DIR"
 
@@ -190,13 +190,13 @@ echo "✅ 最小依赖安装完成"
 # Step 5: 编译主题
 # -------------------------------
 echo "⚙️ 开始编译..."
-make -C "$SDK_DIR" package/luci-theme-kucat/compile V=s
+make -C "$SDK_DIR" package/luci-theme-zwrt/compile V=s
 
 # -------------------------------
 # Step 6: 查找并验证编译生成的 IPK
 # -------------------------------
 # 匹配 SDK 编译输出的 IPK 路径
-IPK_GLOB="$OUTPUT_DIR/luci-theme-kucat_${PKG_VERSION}_*.ipk"
+IPK_GLOB="$OUTPUT_DIR/luci-theme-zwrt_${PKG_VERSION}_*.ipk"
 IPK_REAL_SRC=$(ls $IPK_GLOB 2>/dev/null | head -n1 | xargs realpath 2>/dev/null)
 
 if [ ! -f "$IPK_REAL_SRC" ]; then
@@ -204,7 +204,7 @@ if [ ! -f "$IPK_REAL_SRC" ]; then
   echo "    $IPK_GLOB" >&2
   # 辅助排查：列出所有可能的 IPK 文件
   echo "当前 SDK 输出目录下的 IPK 文件："
-  find "$SDK_DIR/bin/packages" -type f -name "luci-theme-kucat_*.ipk" -ls 2>/dev/null || echo "无"
+  find "$SDK_DIR/bin/packages" -type f -name "luci-theme-zwrt_*.ipk" -ls 2>/dev/null || echo "无"
   exit 1
 fi
 
@@ -267,7 +267,7 @@ echo "📁 输出路径：$DEST_PATH"
 cleanup() {
   echo -e "\n🧹 清理临时文件..."
   # 可选：清理SDK编译缓存
-  # make -C "$SDK_DIR" package/luci-theme-kucat/clean >/dev/null 2>&1
+  # make -C "$SDK_DIR" package/luci-theme-zwrt/clean >/dev/null 2>&1
   echo "✅ 清理完成"
 }
 trap cleanup EXIT

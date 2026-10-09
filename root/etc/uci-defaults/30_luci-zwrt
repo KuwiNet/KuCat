@@ -1,0 +1,29 @@
+#!/bin/sh
+
+# 注册主题
+uci batch <<-EOF
+	set luci.themes.ZWRT=/luci-static/zwrt
+	set luci.main.mediaurlbase=/luci-static/zwrt
+	commit luci
+EOF
+
+# 确保 zwrt 配置存在，并自动开启壁纸背景（安装/升级后生效，无需手动设置）
+if [ -f /etc/config/zwrt ]; then
+	if uci -q get zwrt.@basic[0] >/dev/null 2>&1; then
+		uci set zwrt.@basic[0].bkuse=1
+		uci -q get zwrt.@basic[0].background >/dev/null 2>&1 || uci set zwrt.@basic[0].background=0
+	else
+		uci add zwrt basic
+		uci set zwrt.@basic[0].bkuse=1
+		uci set zwrt.@basic[0].background=0
+	fi
+else
+	uci set zwrt.basic=basic
+	uci set zwrt.basic.bkuse=1
+	uci set zwrt.basic.background=0
+fi
+uci commit zwrt 2>/dev/null || true
+
+chmod +x /usr/libexec/rpcd/luci.zwrt*
+rm -rf /tmp/luci-*
+exit 0
