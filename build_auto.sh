@@ -65,12 +65,11 @@ done
 
 cd "$SDK_DIR"
 
-echo "🔄 更新 feeds..."
-./scripts/feeds update -i
-./scripts/feeds update luci
+echo "🔄 更新所有 feeds..."
+./scripts/feeds update -a
 
-echo "📦 安装最小依赖: luci-base + luci-compat"
-./scripts/feeds install -p luci luci-base luci-compat
+echo "📦 安装全部 feeds 依赖（含 luci-compat / luci-lua-runtime / lua / curl / luasrcdiet / csstidy 等）"
+./scripts/feeds install -a
 
 make defconfig
 
