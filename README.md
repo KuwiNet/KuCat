@@ -7,11 +7,10 @@
 ## 这里只是在原主题前端基础上做一点修改
 **仅修改图标和页脚。
 ## 用法：
-### 1.先安装KuCat主题:
+### 1.安装KuCat主题（会自动带上依赖的配置插件 luci-app-advancedplus 与 luci-app-kucat-config）:
 ```
 opkg update
 opkg install luci-theme-kucat
-opkg install luci-app-advancedplus
 ```
 ### 2.再在[终端](http://zwrt/cgi-bin/luci/admin/services/ttyd/ttyd)运行：
 Github:

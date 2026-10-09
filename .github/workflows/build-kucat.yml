@@ -42,7 +42,6 @@ jobs:
           name: luci-theme-kucat-${{ env.RELEASE_TAG }}
           path: |
             ${{ env.IPK_PATH }}
-            ${{ env.APP_IPK }}
           retention-days: 90
 
       - name: 创建GitHub Release
@@ -57,9 +56,8 @@ jobs:
             - 构建时间: ${{ github.event.head_commit.timestamp }}
             - 提交哈希: ${{ github.sha }}
             - 主题 ipk: ${{ env.IPK_PATH }}
-            - 配置插件 ipk: ${{ env.APP_IPK }}
+            - 依赖（自动从固件源安装）: luci-app-advancedplus、luci-app-kucat-config
           files: |
             ${{ env.IPK_PATH }}
-            ${{ env.APP_IPK }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
