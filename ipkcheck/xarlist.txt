@@ -1,0 +1,18 @@
+﻿--- 顶层 ---
+control.tar.gz
+data.tar.gz
+debian-binary
+data 文件总数 = 34
+--- fonts 目录 ---
+AlimamaFangYuanTiVF-Thin.ttf = 7402152
+AlimamaFangYuanTiVF-Thin.woff = 4033952
+AlimamaFangYuanTiVF-Thin.woff2 = 2935452
+kucat.eot = 21516
+kucat.svg = 77569
+kucat.ttf = 21324
+kucat.woff = 21400
+--- 包内所有 kucat 文件 ---
+\www\luci-static\kucat\fonts\kucat.eot
+\www\luci-static\kucat\fonts\kucat.svg
+\www\luci-static\kucat\fonts\kucat.ttf
+\www\luci-static\kucat\fonts\kucat.woff

@@ -1,0 +1,13 @@
+﻿python : Traceback (most recent call last):
+所在位置 行:43 字符: 1
++ python fin.py 2>&1 | Out-File "finout.txt" -Encoding UTF8
++ ~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last)::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "C:\Users\darny\DoubaoWork\chats\2026-10-09\new-chat\KuCat\ipkcheck\fin.py", line 23, in <module>
+    m=parse_ar(b)
+  File "C:\Users\darny\DoubaoWork\chats\2026-10-09\new-chat\KuCat\ipkcheck\fin.py", line 10, in parse_ar
+    name=data[off:off+16].decode().strip().rstrip('/')
+         ~~~~~~~~~~~~~~~~~~~~~~~^^
+UnicodeDecodeError: 'utf-8' codec can't decode byte 0x8b in position 1: invalid start byte

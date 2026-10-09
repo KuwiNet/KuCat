@@ -1,0 +1,13 @@
+﻿theme.ipk = 1093632
+--- 顶层 ---
+data.tar.gz
+debian-binary
+--- 包内字体文件 ---
+\www\luci-static\kucat\fonts\AlimamaFangYuanTiVF-Thin.ttf
+--- header.ut 内联字体声明（包内）---
+包含 @font-face ✅
+ {
+        font-family: 'kucat';
+        src: url('{{ media }}/fonts/kucat.ttf') format('truetype'),
+             url('{{ media }}/fonts/kucat.woff') format('woff');
+        font-w

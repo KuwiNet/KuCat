@@ -4,7 +4,7 @@ THEME_TITLE:=Kucat Theme
 PKG_NAME:=luci-theme-$(THEME_NAME)
 LUCI_TITLE:=Kucat Theme by kuwi.net
 LUCI_DEPENDS:=+wget +curl +jsonfilter +luci-app-advancedplus +luci-app-kucat-config
-PKG_VERSION:=3.5.1
+PKG_VERSION:=3.5.2
 
 define Package/luci-theme-$(THEME_NAME)/conffiles
 /www/luci-static/resources/background/

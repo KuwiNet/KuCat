@@ -1,0 +1,12 @@
+﻿--- 本地仓库 fonts 目录文件大小 ---
+AlimamaFangYuanTiVF-Thin.ttf = 7402152
+AlimamaFangYuanTiVF-Thin.woff = 4033952
+AlimamaFangYuanTiVF-Thin.woff2 = 2935452
+kucat.eot = 21516
+kucat.svg = 77668
+kucat.ttf = 21324
+kucat.woff = 21400
+--- .gitattributes / LFS 检查 ---
+gitattributes 存在: False
+lfs 指针检查 (kucat.ttf 前40字节): 
+  '.......?...0OS/2...|...?...`cmap}???....'

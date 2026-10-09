@@ -1,0 +1,6 @@
+﻿style.css 大小 = 78509
+--- 打包后 style.css 中的 @font-face ---
+---\n{font-family:AlimamaFangYuanTi;src:url(../fonts/AlimamaFangYuanTiVF-Thin.ttf) format('truetype'),url(../fonts/AlimamaFangYuanTiVF-Thin.woff) format('woff'),url(../fonts/AlimamaFangYuanTiVF-Thin.woff2) format('woff2');font-weight:100 900;font-style:normal}[class^="icon-"],[class*=" icon-"]{font-famil
+--- 打包后 style.css 中是否含 kucat/字体引用 ---
+kucat 出现次数: 13
+fonts/kucat 出现: False
