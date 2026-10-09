@@ -32,11 +32,11 @@
 }
 
 @font-face {
-    font-family: kucat;
-    src: url(../fonts/kucat.eot?9qz8zf#iefix) format('embedded-opentype'), url(../fonts/kucat.ttf?9qz8zf) format('truetype'), url(../fonts/kucat.woff?9qz8zf) format('woff'), url(../fonts/kucat.svg?9qz8zf#kucat) format('svg');
+    font-family: "kucat";
+    src: url('../fonts/kucat.ttf') format('truetype'),
+        url('../fonts/kucat.woff') format('woff');
     font-weight: 400;
     font-style: normal;
-    font-display: block
 }
 
 @font-face {
