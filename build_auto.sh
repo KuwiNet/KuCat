@@ -60,10 +60,10 @@ done
 
 cd "$SDK_DIR"
 
-echo "🔄 更新 luci feed..."
-./scripts/feeds update -i
+echo "🔄 更新全部 feeds（克隆 feed 目录）..."
+./scripts/feeds update -a
 
-echo "📦 安装主题构建所需最小依赖 (luci-base)..."
+echo "📦 安装主题构建所需依赖 (luci-base)..."
 ./scripts/feeds install -p luci luci-base
 
 make defconfig
