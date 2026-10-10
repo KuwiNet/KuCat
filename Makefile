@@ -4,7 +4,7 @@ THEME_TITLE:=ZWRT Theme
 PKG_NAME:=luci-theme-$(THEME_NAME)
 LUCI_TITLE:=ZWRT Theme by kuwi.net
 LUCI_DEPENDS:=+wget +curl +jsonfilter +luci-app-zwrt
-PKG_VERSION:=3.5.7
+PKG_VERSION:=3.5.8
 
 define Package/luci-theme-$(THEME_NAME)/conffiles
 /www/luci-static/resources/background/

@@ -22,10 +22,10 @@ return L.view.extend({
 		o = s.option(form.ListValue, 'background', _('背景来源'));
 		o.value('0', _('内置默认'));
 		o.value('1', _('iciba'));
-		o.value('2', _('bing'));
-		o.value('3', _('birdpaper'));
-		o.value('4', _('birdpaper 2'));
-		o.value('5', _('自定义'));
+		o.value('2', _('Unsplash'));
+		o.value('3', _('Bing'));
+		o.value('4', _('小鸟壁纸 (birdpaper)'));
+		o.value('5', _('Wallhaven'));
 		o.default = '0';
 		o.depends('bkuse', '1');
 
