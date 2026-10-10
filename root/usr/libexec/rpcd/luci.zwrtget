@@ -234,8 +234,8 @@ fetch_PicUrl() {
                 jsonfilter -e "@[0]['urls']['regular']"
             ;;
         3)
-            picurl=$(http_request "https://www.bing.com/HPImageArchive.aspx?format=js&n=1" | jsonfilter -qe '@.images[0].url')
-            [ -n "${picurl}" ] && echo "https://www.bing.com${picurl}"
+            picurl=$(http_request "https://cn.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&mkt=zh-CN" | jsonfilter -qe '@.images[0].url')
+            [ -n "${picurl}" ] && echo "https://cn.bing.com${picurl}"
             ;;
         4)
             # 使用 /dev/urandom 生成随机数，兼容 BusyBox

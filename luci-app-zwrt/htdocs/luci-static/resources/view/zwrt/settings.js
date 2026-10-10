@@ -27,7 +27,6 @@ return L.view.extend({
 		o.value('4', _('小鸟壁纸 (birdpaper)'));
 		o.value('5', _('Wallhaven'));
 		o.default = '0';
-		o.depends('bkuse', '1');
 
 		o = s.option(form.Value, 'primary_rgbs', _('主色 RGB（亮）'));
 		o.placeholder = '28,66,188';

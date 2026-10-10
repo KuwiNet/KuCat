@@ -61,7 +61,7 @@ if (config_exists && zwrt) {
         setbar = config.setbar || "1";
         dayword = config.dayword || "0";
         background = config.background || "0";
-        bkuse = config.bkuse || "0";
+        bkuse = config.bkuse || "1";
         bklock = config.bklock || "1";
         fontd = config.font_d || '0.92rem';
         fontz = config.font_z || '0.875rem';

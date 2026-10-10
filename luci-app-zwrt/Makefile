@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-zwrt
-PKG_VERSION:=3.5.8
+PKG_VERSION:=3.5.9
 PKG_RELEASE:=1
 
 LUCI_TITLE:=ZWRT Theme Settings
